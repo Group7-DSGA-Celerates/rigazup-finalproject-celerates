@@ -44,11 +44,11 @@ if st.button("🚀 Eksekusi Preprocessing Engine"):
         with colB:
             st.write(f"**Kolom Terbentuk:** {clean_df.shape[1]}")
             
-    st.dataframe(clean_df.head(10), use_container_width=True)
+    st.dataframe(clean_df, use_container_width=True)
 elif "clean_data" in st.session_state:
     st.info("💡 Data bersih sudah tersedia di dalam memori sesesi aktif.")
     with st.container(border=True):
         st.markdown("### 📤 Profil Data Bersih")
         clean_df = st.session_state["clean_data"]
         st.write(f"**Baris Tersisa:** {clean_df.shape[0]:,}")
-        st.dataframe(clean_df.head(5), use_container_width=True)
+        st.dataframe(clean_df, use_container_width=True)
