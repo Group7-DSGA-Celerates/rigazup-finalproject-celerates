@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+from typing import cast, Tuple
 
-def prepare_sales_time_series(df: pd.DataFrame, product: str = None, category: str = None) -> pd.DataFrame:
+def prepare_sales_time_series(df: pd.DataFrame, product: str | None = None, category: str | None = None) -> pd.DataFrame:
     """
     Memfilter dan melakukan agregasi data series waktu harian per produk dan kategori.
     Target utama adalah Qty_Terjual.
@@ -19,7 +20,7 @@ def prepare_sales_time_series(df: pd.DataFrame, product: str = None, category: s
         return df_filtered
         
     # 2. Urutkan berdasarkan tanggal
-    df_filtered = df_filtered.sort_values("Tanggal")
+    df_filtered = cast(pd.DataFrame, df_filtered.sort_values("Tanggal"))
     
     # 3. Agregasi harian per produk & kategori
     df_agg = df_filtered.groupby(["Tanggal", "Produk", "Kategori"]).agg({
@@ -29,7 +30,7 @@ def prepare_sales_time_series(df: pd.DataFrame, product: str = None, category: s
         "Stok_Setelah_Transaksi": "last"
     }).reset_index()
     
-    return df_agg
+    return cast(pd.DataFrame, df_agg)
 
 def create_forecasting_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -41,18 +42,20 @@ def create_forecasting_features(df: pd.DataFrame) -> pd.DataFrame:
     df_feat = df.copy()
     
     # Pastikan data diurutkan berdasarkan produk lalu tanggal agar fitur lag benar berurut
-    df_feat = df_feat.sort_values(by=["Produk", "Tanggal"])
+    df_feat = cast(pd.DataFrame, df_feat.sort_values(by=["Produk", "Tanggal"]))
     
     # Fitur waktu (wajib numeric numerik untuk ML)
-    df_feat["Tahun"] = df_feat["Tanggal"].dt.year
-    df_feat["Bulan"] = df_feat["Tanggal"].dt.month
-    df_feat["Hari"] = df_feat["Tanggal"].dt.day
-    df_feat["day_of_week"] = df_feat["Tanggal"].dt.dayofweek
+    dates = pd.to_datetime(df_feat["Tanggal"])
+    dates_any = cast(Any, dates.dt)
+    df_feat["Tahun"] = dates_any.year
+    df_feat["Bulan"] = dates_any.month
+    df_feat["Hari"] = dates_any.day
+    df_feat["day_of_week"] = dates_any.dayofweek
     
     # Fitur pendeteksi musim / kalender (Sangat penting untuk Linear Regression)
-    df_feat["is_weekend"] = df_feat["day_of_week"].apply(lambda x: 1 if x >= 5 else 0)
-    df_feat["is_month_start"] = df_feat["Tanggal"].dt.is_month_start.astype(int)
-    df_feat["is_month_end"] = df_feat["Tanggal"].dt.is_month_end.astype(int)
+    df_feat["is_weekend"] = (dates_any.dayofweek >= 5).astype(int)
+    df_feat["is_month_start"] = dates_any.is_month_start.astype(int)
+    df_feat["is_month_end"] = dates_any.is_month_end.astype(int)
     
     # Fitur Time Series (Lag & Rolling Window) yang dihitung spesifik per Produk
     df_feat["lag_1"] = df_feat.groupby("Produk")["Qty_Terjual"].shift(1)
@@ -66,7 +69,7 @@ def create_forecasting_features(df: pd.DataFrame) -> pd.DataFrame:
     feature_cols = ["lag_1", "lag_7", "rolling_mean_7", "rolling_mean_14"]
     df_feat = df_feat.dropna(subset=feature_cols)
     
-    return df_feat
+    return cast(pd.DataFrame, df_feat)
 
 def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -83,9 +86,9 @@ def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
     # Gabungkan dengan dataframe asli (kolom asli tetap dipertahankan untuk UI)
     df_encoded = pd.concat([df, dummies], axis=1)
         
-    return df_encoded
+    return cast(pd.DataFrame, df_encoded)
 
-def split_features_target(df: pd.DataFrame):
+def split_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Memisahkan dataset menjadi X (Fitur Prediktor) dan y (Target Aktual = Qty_Terjual).
     """

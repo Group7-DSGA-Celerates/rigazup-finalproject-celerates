@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-# pyrefly: ignore [missing-import]
 import plotly.graph_objects as go
-# pyrefly: ignore [missing-import]
 import plotly.express as px
 from src.visualization import load_css, apply_theme, render_sidebar_theme_toggle, render_page_header, render_kpi_card, render_insight_box
 from src.feature_engineering import (
@@ -240,8 +238,8 @@ if "forecast_result" in st.session_state:
                         plot_bgcolor="rgba(0,0,0,0)",
                         paper_bgcolor="rgba(0,0,0,0)",
                         hovermode="x unified",
-                        margin=dict(l=10, r=10, t=30, b=10),
-                        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1),
+                        margin=dict(l=10, r=10, t=40, b=10),
+                        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                         font=dict(family="Inter, sans-serif", color=text_color),
                         xaxis=dict(showgrid=True, gridcolor=grid_color, zeroline=False),
                         yaxis=dict(showgrid=True, gridcolor=grid_color, zeroline=False)

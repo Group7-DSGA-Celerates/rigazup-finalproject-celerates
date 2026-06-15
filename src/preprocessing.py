@@ -1,4 +1,5 @@
 import pandas as pd
+from typing import cast, Any
 
 def convert_date_column(df: pd.DataFrame) -> pd.DataFrame:
     """Mengubah kolom Tanggal ke tipe datetime."""
@@ -9,10 +10,12 @@ def convert_date_column(df: pd.DataFrame) -> pd.DataFrame:
 def create_time_features(df: pd.DataFrame) -> pd.DataFrame:
     """Membuat kolom fitur waktu berdasarkan kolom Tanggal."""
     df_clean = df.copy()
-    df_clean["Tahun"] = df_clean["Tanggal"].dt.year
-    df_clean["Bulan"] = df_clean["Tanggal"].dt.month
-    df_clean["Hari"] = df_clean["Tanggal"].dt.day
-    df_clean["Nama_Hari"] = df_clean["Tanggal"].dt.day_name()
+    dates = pd.to_datetime(df_clean["Tanggal"])
+    dates_any = cast(Any, dates.dt)
+    df_clean["Tahun"] = dates_any.year
+    df_clean["Bulan"] = dates_any.month
+    df_clean["Hari"] = dates_any.day
+    df_clean["Nama_Hari"] = dates_any.day_name()
     return df_clean
 
 def check_data_quality(df: pd.DataFrame) -> dict:
@@ -31,8 +34,8 @@ def check_data_quality(df: pd.DataFrame) -> dict:
     for col in numeric_columns:
         if col in df.columns:
             # Konversi sementara ke numerik untuk mengecek jika ada yang negatif
-            numeric_col = pd.to_numeric(df[col], errors="coerce")
-            quality[f"negative_{col}"] = (numeric_col < 0).sum()
+            numeric_col = cast(pd.Series, pd.to_numeric(df[col], errors="coerce"))
+            quality[f"negative_{col}"] = cast(Any, numeric_col < 0).sum()
         else:
             quality[f"negative_{col}"] = 0
             

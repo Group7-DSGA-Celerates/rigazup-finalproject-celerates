@@ -78,10 +78,12 @@ def select_best_model(evaluation_df: pd.DataFrame, trained_models: dict):
     
     if not valid_mape.empty:
         # Utamakan MAPE terkecil
-        best_row = valid_mape.loc[valid_mape["MAPE"].idxmin()]
+        from typing import cast, Any
+        best_row = valid_mape.loc[cast(Any, valid_mape["MAPE"]).idxmin()]
     else:
         # Fallback metric (RMSE terkecil) jika semua MAPE division by zero / rusak
-        best_row = df_eval.loc[df_eval["RMSE"].idxmin()]
+        from typing import cast, Any
+        best_row = df_eval.loc[cast(Any, df_eval["RMSE"]).idxmin()]
         
     best_model_name = best_row["model_name"]
     return best_model_name, trained_models[best_model_name]

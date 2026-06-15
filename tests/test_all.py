@@ -24,8 +24,12 @@ try:
     df_encoded = encode_categorical_features(df_features)
     X, y = split_features_target(df_encoded)
     
-    metrics, models = train_models(X, y)
-    best_model_name, best_model, best_metrics = select_best_model(metrics, models)
+    trained_models = train_models(X, y)
+    from src.modeling import predict_models
+    from src.evaluation import evaluate_predictions
+    predictions = predict_models(trained_models, X)
+    eval_df = evaluate_predictions(y, predictions)
+    best_model_name, best_model = select_best_model(eval_df, trained_models)
     
     print("Best model selected:", best_model_name)
     print("Pipeline executed successfully without errors.")

@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-# pyrefly: ignore [missing-import]
 import plotly.express as px
 
 st.title('Dashboard Penjualan')

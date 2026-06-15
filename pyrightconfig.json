@@ -1,0 +1,15 @@
+{
+  "venvPath": "c:\\RIGAZUP",
+  "venv": ".venv",
+  "extraPaths": [
+    "c:\\RIGAZUP"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "c:\\RIGAZUP",
+      "extraPaths": [
+        "c:\\RIGAZUP"
+      ]
+    }
+  ]
+}

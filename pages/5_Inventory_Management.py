@@ -143,7 +143,8 @@ with tab2:
             
             if selected_prod != "Semua Produk":
                 # Mode Fokus 1 Item
-                row = filtered_df.iloc[0]
+                from typing import cast
+                row = cast(pd.DataFrame, filtered_df).iloc[0]
                 st.markdown(f"#### 📦 {row['Produk']}")
                 
                 col_c1, col_c2, col_c3, col_c4 = st.columns(4)
@@ -190,8 +191,10 @@ with tab2:
                 df_view = filtered_df[display_cols].copy()
                 
                 rank_map = {"High": 1, "Medium": 2, "Low": 3}
-                df_view["Rank"] = df_view["priority_level"].map(rank_map)
-                df_view = df_view.sort_values(by=["Rank", "recommended_restock"], ascending=[True, False]).drop(columns=["Rank"])
+                from typing import cast
+                df_view_cast = cast(pd.DataFrame, df_view)
+                df_view_cast["Rank"] = df_view_cast["priority_level"].map(rank_map)
+                df_view = df_view_cast.sort_values(["Rank", "recommended_restock"], ascending=[True, False]).drop(columns=["Rank"])
                 
                 def format_risk_badge(val):
                     if val == "High": return "🔴 High"

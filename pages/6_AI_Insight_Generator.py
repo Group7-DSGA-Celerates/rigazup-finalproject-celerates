@@ -36,7 +36,6 @@ api_key = st.sidebar.text_input("Google Gemini API Key", type="password", help="
 st.markdown("Sistem menyaring titik data penjualan masa lampau dan proyeksi ke depan untuk mengukir ringkasan tindakan.")
 
 if api_key:
-    # pyrefly: ignore [missing-import]
     import google.generativeai as genai
     genai.configure(api_key=api_key)
     

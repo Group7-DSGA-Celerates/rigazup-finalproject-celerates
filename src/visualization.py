@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-# pyrefly: ignore [missing-import]
 import plotly.express as px
 
 def load_css(file_name="assets/style.css"):
@@ -125,6 +124,10 @@ def create_bar_chart(df, x_col, y_col, orientation='v', color_seq=None):
         
     fig = _apply_plotly_layout(fig)
     fig.update_layout(xaxis_title="", yaxis_title="")
+    
+    if orientation == 'h':
+        fig.update_layout(hovermode="y unified")
+        
     return fig
 
 def create_donut_chart(df, names_col, values_col):
