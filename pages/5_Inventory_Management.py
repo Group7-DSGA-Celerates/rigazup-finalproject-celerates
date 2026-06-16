@@ -14,6 +14,12 @@ render_page_header("Inventory Management", "Pemantauan ancaman krisis gudang dan
 
 df = st.session_state["clean_data"].copy()
 
+# Auto-migrate legacy state cache to include new Cashflow & Lead Time features
+if "Lead_Time_Hari" not in df.columns:
+    from src.preprocessing import clean_data
+    df = clean_data(df)
+    st.session_state["clean_data"] = df
+
 # ================= GLOBAL STATE UPDATE =================
 # Selalu generate stock_summary dari data yang fresh agar aman untuk AI Insight Generator
 stock_summary = create_stock_summary(df)
@@ -33,6 +39,14 @@ with col3:
     render_kpi_card("Risiko Overstock Tinggi", str(high_overstock), subtitle="Barang menumpuk lama", icon="📉")
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+import io
+
+def df_to_excel(df: pd.DataFrame) -> bytes:
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+    return output.getvalue()
 
 # Helper function untuk format tabel
 def highlight_risk(val):
@@ -54,9 +68,24 @@ with tab1:
             ascending=[False, True]
         )[["Produk", "Kategori", "latest_stock", "avg_qty_terjual", "transaction_count", "stockout_risk"]]
         
+        display_stockout = stockout_df.copy()
+        display_stockout.columns = ["Produk", "Kategori", "Sisa Stok", "Rata-rata Kuantitas Terjual", "Jumlah Transaksi", "Risiko Stockout"]
+        
         st.dataframe(
-            stockout_df.style.map(highlight_risk, subset=['stockout_risk']),
+            display_stockout.style.map(highlight_risk, subset=['Risiko Stockout']).format({
+                "Sisa Stok": "{:,.0f}",
+                "Rata-rata Kuantitas Terjual": lambda x: f"{x:g}",
+                "Jumlah Transaksi": "{:,.0f}"
+            }),
             use_container_width=True
+        )
+        
+        excel_stockout = df_to_excel(display_stockout)
+        st.download_button(
+            label="⬇️ Export Data Stockout (Excel)",
+            data=excel_stockout,
+            file_name="RIGAZUP_Stockout_Risk.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
     st.markdown("<br>", unsafe_allow_html=True)
@@ -69,9 +98,24 @@ with tab1:
             ascending=[False, False]
         )[["Produk", "Kategori", "latest_stock", "avg_qty_terjual", "transaction_count", "overstock_risk"]]
         
+        display_overstock = overstock_df.copy()
+        display_overstock.columns = ["Produk", "Kategori", "Sisa Stok", "Rata-rata Kuantitas Terjual", "Jumlah Transaksi", "Risiko Overstock"]
+        
         st.dataframe(
-            overstock_df.style.map(highlight_risk, subset=['overstock_risk']),
+            display_overstock.style.map(highlight_risk, subset=['Risiko Overstock']).format({
+                "Sisa Stok": "{:,.0f}",
+                "Rata-rata Kuantitas Terjual": lambda x: f"{x:g}",
+                "Jumlah Transaksi": "{:,.0f}"
+            }),
             use_container_width=True
+        )
+        
+        excel_overstock = df_to_excel(display_overstock)
+        st.download_button(
+            label="⬇️ Export Data Overstock (Excel)",
+            data=excel_overstock,
+            file_name="RIGAZUP_Overstock_Risk.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
 with tab2:
@@ -90,11 +134,11 @@ with tab2:
         
         # 2. Gabung Data 
         merged_df = pd.merge(
-            stock_summary[["Produk", "Kategori", "latest_stock"]], 
+            stock_summary[["Produk", "Kategori", "latest_stock", "avg_qty_terjual", "lead_time_hari", "harga_modal"]], 
             forecast_agg, 
             on=["Produk", "Kategori"], 
             how="left"
-        ).fillna({"forecast_demand": 0, "latest_stock": 0})
+        ).fillna({"forecast_demand": 0, "latest_stock": 0, "avg_qty_terjual": 0, "lead_time_hari": 3, "harga_modal": 0})
         
         merged_df.rename(columns={"latest_stock": "current_stock"}, inplace=True)
         
@@ -126,9 +170,16 @@ with tab2:
             # 5. Eksekusi Rumus Matematika
             filtered_df["safety_stock"] = safety_stock
             filtered_df["recommended_restock"] = filtered_df.apply(
-                lambda r: calculate_recommended_restock(r["forecast_demand"], r["current_stock"], r["safety_stock"]), 
+                lambda r: calculate_recommended_restock(
+                    r["forecast_demand"], 
+                    r["current_stock"], 
+                    r["safety_stock"],
+                    r["avg_qty_terjual"],
+                    r["lead_time_hari"]
+                ), 
                 axis=1
             )
+            filtered_df["estimasi_modal"] = filtered_df["recommended_restock"] * filtered_df["harga_modal"]
             filtered_df["priority_level"] = filtered_df.apply(
                 lambda r: determine_restock_priority(r["recommended_restock"], r["current_stock"], r["safety_stock"]), 
                 axis=1
@@ -173,20 +224,44 @@ with tab2:
                 # Mode Summary All
                 high_priority = filtered_df[filtered_df["priority_level"] == "High"].shape[0]
                 total_restock = filtered_df["recommended_restock"].sum()
+                total_budget = filtered_df["estimasi_modal"].sum()
                 
-                c1, c2 = st.columns(2)
+                c1, c2, c3 = st.columns(3)
                 with c1:
                     render_kpi_card("Darurat Restock (High Priority)", str(high_priority), subtitle="Item rawan kehabisan", icon="🚨")
                 with c2:
                     render_kpi_card("Total Pembelian Eksekusi", f"{total_restock:,.0f} Unit", subtitle="Estimasi kuantitas belanja logistik", icon="🚚")
+                with c3:
+                    from src.visualization import format_currency
+                    render_kpi_card("Estimasi Modal Restock", format_currency(total_budget), subtitle="Anggaran HPP wajib keluar", icon="💰")
 
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- EARLY WARNING SYSTEM (Simulasi) ---
+            with st.expander("📲 Kirim Peringatan Dini (WhatsApp)", expanded=False):
+                if high_priority > 0:
+                    urgent_items = filtered_df[filtered_df["priority_level"] == "High"]
+                    wa_text = "🚨 *PERINGATAN DARURAT STOK BARANG* 🚨\n\nHalo, tolong segera lakukan pengadaan (restock) untuk barang-barang berikut sebelum kehabisan:\n\n"
+                    import math
+                    for _, urow in urgent_items.iterrows():
+                        sisa_stok = int(urow['current_stock'])
+                        butuh_stok = math.ceil(urow['recommended_restock'])
+                        wa_text += f"- *{urow['Produk']}*: Sisa {sisa_stok} Unit (Butuh {butuh_stok} Unit)\n"
+                    wa_text += "\nMohon segera diproses. Terima kasih! - _Sistem RIGAZUP_"
+                    
+                    st.info("Pesan otomatis telah dibuat berdasarkan data inventaris. Silakan salin (copy) teks di bawah ini dan kirimkan ke WhatsApp operasional atau supplier.")
+                    st.code(wa_text, language="markdown")
+                else:
+                    st.success("🎉 Tidak ada produk dalam status darurat (High Priority). Gudang aman!")
+                    
+            st.markdown("<br>", unsafe_allow_html=True)
+
             with st.container(border=True):
                 st.markdown("### 📋 Daftar Transaksi Restock")
                 
                 display_cols = [
                     "Produk", "Kategori", "forecast_demand", "current_stock", 
-                    "safety_stock", "recommended_restock", "priority_level", "alasan_rekomendasi"
+                    "safety_stock", "recommended_restock", "estimasi_modal", "priority_level", "alasan_rekomendasi"
                 ]
                 df_view = filtered_df[display_cols].copy()
                 
@@ -205,15 +280,32 @@ with tab2:
                 
                 df_view.columns = [
                     "Produk", "Kategori", "Estimasi Terjual", "Sisa Stok", 
-                    "Batas Aman", "Wajib Beli", "Prioritas", "Deskripsi Sistem"
+                    "Batas Aman", "Wajib Beli", "Modal Keluar", "Prioritas", "Deskripsi Sistem"
                 ]
                 
-                st.dataframe(df_view, use_container_width=True)
+                # Membulatkan nilai kuantitas ke atas (ceil) jika ada sisa desimal
+                import math
+                df_view["Sisa Stok"] = df_view["Sisa Stok"].apply(lambda x: int(x))
+                df_view["Estimasi Terjual"] = df_view["Estimasi Terjual"].apply(lambda x: math.ceil(x))
+                df_view["Wajib Beli"] = df_view["Wajib Beli"].apply(lambda x: math.ceil(x))
                 
-                csv_data = df_view.to_csv(index=False).encode('utf-8')
+                # Format ke tampilan web: Rupiah untuk nominal, dan hapus desimal koma untuk unit barang
+                from src.visualization import format_currency
+                st.dataframe(
+                    df_view.style.format({
+                        "Modal Keluar": lambda x: format_currency(x),
+                        "Sisa Stok": "{:,.0f}",
+                        "Estimasi Terjual": "{:,.0f}",
+                        "Wajib Beli": "{:,.0f}",
+                        "Batas Aman": "{:,.0f}"
+                    }), 
+                    use_container_width=True
+                )
+                
+                excel_restock = df_to_excel(df_view)
                 st.download_button(
-                    label="⬇️ Export Data Restock (CSV)",
-                    data=csv_data,
-                    file_name="RIGAZUP_Restock_Logistik.csv",
-                    mime="text/csv"
+                    label="⬇️ Export Data Restock (Excel)",
+                    data=excel_restock,
+                    file_name="RIGAZUP_Restock_Logistik.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )

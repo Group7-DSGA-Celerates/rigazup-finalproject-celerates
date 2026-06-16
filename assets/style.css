@@ -47,48 +47,82 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Hero Section (Gradient Halus) */
-.hero-container {
-    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-    padding: 80px 40px; /* Spacing lega */
+/* Base styling for both */
+.hero-container-dark, .hero-container-light {
+    padding: 80px 40px; 
     border-radius: 24px;
     margin-bottom: 60px;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
     text-align: center;
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
 }
-.hero-container::before {
+.hero-container-dark::before, .hero-container-light::before {
     content: '';
     position: absolute;
     top: -50%; left: -50%; width: 200%; height: 200%;
-    background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 60%);
     pointer-events: none;
 }
-.hero-container h1 {
+.hero-container-dark h1, .hero-container-light h1 {
     font-size: 4.2rem;
     font-weight: 800;
-    color: #FFFFFF !important;
     margin-bottom: 16px;
     letter-spacing: -0.03em;
     position: relative;
     z-index: 1;
 }
-.hero-container p.subtitle {
+.hero-container-dark p.subtitle, .hero-container-light p.subtitle {
     font-size: 1.4rem;
-    color: #22D3EE; /* Cyan lebih terang */
     font-weight: 600;
     margin-bottom: 24px;
     position: relative;
     z-index: 1;
 }
-.hero-container p.desc {
+.hero-container-dark p.desc, .hero-container-light p.desc {
     font-size: 1.2rem;
-    color: #CBD5E1; /* Slate 300 */
     max-width: 800px;
     margin: 0 auto;
     line-height: 1.7;
     position: relative;
     z-index: 1;
+}
+
+/* 🌙 DARK MODE (Aesthetic Navy Theme from Screenshot) */
+.hero-container-dark {
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.hero-container-dark::before {
+    background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 60%);
+}
+.hero-container-dark h1 {
+    color: #FFFFFF !important;
+}
+.hero-container-dark p.subtitle {
+    color: #22D3EE;
+}
+.hero-container-dark p.desc {
+    color: #CBD5E1;
+}
+
+/* ☀️ LIGHT MODE (Clean Slate Theme) */
+.hero-container-light {
+    background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+.hero-container-light::before {
+    background: radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 60%);
+}
+.hero-container-light h1 {
+    color: #0F172A !important;
+}
+.hero-container-light p.subtitle {
+    color: #0891B2;
+}
+.hero-container-light p.desc {
+    color: #475569;
 }
 
 /* Animations */
@@ -177,11 +211,13 @@ h1, h2, h3, h4, h5, h6 {
     transform: scale(1.15) rotate(-5deg);
 }
 .kpi-value {
-    font-size: 2.4rem;
+    font-size: clamp(1.6rem, 2.5vw, 2.4rem);
     font-weight: 800;
     color: var(--primary-color);
     margin: 0 0 8px 0;
     line-height: 1.2;
+    word-break: break-word;
+    white-space: normal;
 }
 .kpi-subtitle {
     font-size: 0.95rem;

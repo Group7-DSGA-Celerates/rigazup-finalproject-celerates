@@ -74,8 +74,21 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     # 6. Buat fitur waktu
     df_clean = create_time_features(df_clean)
     
-    # 7. Buat kolom hitungan
+    # 7. Injeksi Harga Modal (HPP) & Lead Time jika tidak ada
+    if "Harga_Modal" not in df_clean.columns:
+        df_clean["Harga_Modal"] = df_clean["Harga_Satuan"] * 0.7  # Asumsi HPP 70%
+    else:
+        df_clean["Harga_Modal"] = pd.to_numeric(df_clean["Harga_Modal"], errors="coerce").fillna(df_clean["Harga_Satuan"] * 0.7)
+        
+    if "Lead_Time_Hari" not in df_clean.columns:
+        df_clean["Lead_Time_Hari"] = 3 # Default 3 hari
+    else:
+        df_clean["Lead_Time_Hari"] = pd.to_numeric(df_clean["Lead_Time_Hari"], errors="coerce").fillna(3)
+
+    # 8. Buat kolom hitungan (Cashflow)
     df_clean["Total_Penjualan_Hitung"] = df_clean["Qty_Terjual"] * df_clean["Harga_Satuan"]
+    df_clean["Total_Modal"] = df_clean["Qty_Terjual"] * df_clean["Harga_Modal"]
+    df_clean["Total_Keuntungan"] = df_clean["Total_Penjualan_Hitung"] - df_clean["Total_Modal"]
     df_clean["Selisih_Total_Penjualan"] = df_clean["Total_Penjualan"] - df_clean["Total_Penjualan_Hitung"]
     
     return df_clean
@@ -86,6 +99,14 @@ def generate_product_summary(df: pd.DataFrame) -> pd.DataFrame:
         total_qty_terjual=("Qty_Terjual", "sum"),
         rata_rata_qty=("Qty_Terjual", "mean"),
         total_penjualan=("Total_Penjualan", "sum"),
-        frekuensi_transaksi=("Tanggal", "count")
+        total_modal=("Total_Modal", "sum"),
+        total_keuntungan=("Total_Keuntungan", "sum"),
+        frekuensi_transaksi=("Tanggal", "count"),
+        lead_time_hari=("Lead_Time_Hari", "first")
     ).reset_index()
+    
+    # Calculate Profit Margin
+    summary["profit_margin_persen"] = (summary["total_keuntungan"] / summary["total_penjualan"]) * 100
+    summary["profit_margin_persen"] = summary["profit_margin_persen"].fillna(0)
+    
     return summary

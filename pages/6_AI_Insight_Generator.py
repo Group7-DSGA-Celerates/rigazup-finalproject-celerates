@@ -22,6 +22,14 @@ df_prod = st.session_state["product_summary"]
 df_stock = st.session_state["stock_summary"]
 df_restock = st.session_state["restock_recommendation"]
 
+best_name = st.session_state.get("best_model_name", "AI Model")
+mape_score = "N/A"
+if "model_evaluation" in st.session_state:
+    eval_df = st.session_state["model_evaluation"]
+    best_row = eval_df[eval_df["model_name"] == best_name]
+    if not best_row.empty:
+        mape_score = f"{best_row['MAPE'].values[0]:.2f}%"
+
 # ================= KUMPULKAN KONTEKS DASAR =================
 sales_insight = generate_sales_insight(df_clean)
 product_insight = generate_product_insight(df_prod)
@@ -50,17 +58,20 @@ Tugas Anda adalah merangkum data penjualan dan status inventaris ke dalam sebuah
 Jangan membahas teknis kode atau database, bicaralah selayaknya konsultan bisnis ke direktur. 
 Gunakan bahasa Indonesia baku yang mengalir, dan gunakan markdown (huruf tebal, bullet points, emoji yang elegan).
 
-Berikut adalah kalkulasi data mentah (dari Rule-based engine internal) yang harus Anda elaborasi menjadi analisis komprehensif:
+Berikut adalah kalkulasi data mentah yang harus Anda elaborasi menjadi analisis komprehensif:
 
 1. Performa Penjualan & Finansial: {sales_insight}
 2. Keunggulan Produk: {product_insight}
 3. Risiko Stok Gudang (Stockout/Overstock): {stock_insight}
 4. Strategi Restock (Dari algoritma Machine Learning): {restock_insight}
+5. Evaluasi Performa AI: Model peramalan masa depan menggunakan algoritma {best_name} dengan skor Error (MAPE) sebesar {mape_score}.
 
-Susun dalam format laporan dengan judul: "Laporan Eksekutif Analisis Logistik". Pisahkan ke dalam beberapa bab seperti:
-- Sorotan Utama (Highlight)
-- Evaluasi Risiko Inventaris
-- Rekomendasi Pengadaan Cerdas
+Susun dalam format laporan dengan judul: "Laporan Eksekutif Analisis Logistik". Pisahkan ke dalam 5 bab utama berikut:
+- Sorotan Utama (Highlight Finansial & Operasional)
+- Evaluasi Risiko Inventaris Gudang
+- Rekomendasi Pengadaan (Restock) Cerdas
+- Strategi Promosi & Bundling (Eksklusif AI: Berikan ide taktis cross-selling dengan mengawinkan produk Overstock dengan produk Best-Seller agar stok mati cepat habis)
+- Proyeksi & Tingkat Kepercayaan Keputusan (Eksklusif AI: Berikan opini apakah direktur bisa mempercayai peramalan ini untuk keputusan finansial berskala besar berdasarkan skor MAPE {mape_score})
 
 PENTING: Langsung mulai dari judul laporan. JANGAN tambahkan salam pembuka seperti "Kepada Bapak/Ibu Direktur" atau semacamnya.
                 """

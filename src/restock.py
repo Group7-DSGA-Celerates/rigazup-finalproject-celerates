@@ -11,7 +11,9 @@ def create_stock_summary(df: pd.DataFrame) -> pd.DataFrame:
         total_penjualan=("Total_Penjualan", "sum"),
         transaction_count=("Total_Penjualan", "count"),
         latest_stock=("Stok_Setelah_Transaksi", "last"),
-        avg_stock=("Stok_Setelah_Transaksi", "mean")
+        avg_stock=("Stok_Setelah_Transaksi", "mean"),
+        lead_time_hari=("Lead_Time_Hari", "last"),
+        harga_modal=("Harga_Modal", "last")
     ).reset_index()
     summary["stockout_risk"] = summary.apply(calculate_stockout_risk, axis=1)
     summary["overstock_risk"] = summary.apply(calculate_overstock_risk, axis=1)
@@ -70,9 +72,11 @@ def generate_stock_recommendation(row) -> str:
     else:
         return "✅ Stok saat ini berimbang dengan demand."
 
-def calculate_recommended_restock(forecast_demand, current_stock, safety_stock):
-    """Menghitung jumlah unit yang harus dibeli ulang."""
-    return max(0, forecast_demand + safety_stock - current_stock)
+def calculate_recommended_restock(forecast_demand, current_stock, safety_stock, avg_daily_sales=0.0, lead_time=3.0):
+    """Menghitung jumlah unit yang harus dibeli ulang dengan Lead Time Supplier."""
+    reorder_point = (avg_daily_sales * lead_time) + safety_stock
+    target_stock = forecast_demand + reorder_point
+    return max(0, target_stock - current_stock)
 
 def determine_restock_priority(recommended, current_stock, safety_stock):
     """Menentukan tingkat urgensi restock."""

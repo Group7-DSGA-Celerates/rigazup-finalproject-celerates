@@ -5,7 +5,7 @@ import plotly.express as px
 def load_css(file_name="assets/style.css"):
     """Fungsi untuk memuat custom CSS struktural ke dalam aplikasi Streamlit."""
     if os.path.exists(file_name):
-        with open(file_name) as f:
+        with open(file_name, encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 def apply_theme():
@@ -17,8 +17,13 @@ def render_sidebar_theme_toggle():
     pass
 
 def format_currency(value: float) -> str:
-    """Format angka menjadi format Rupiah sederhana."""
-    return f"Rp {value:,.0f}".replace(",", ".")
+    """Format angka menjadi format Rupiah (Rp X.XXX.XXX) dibulatkan ke atas."""
+    import math
+    # Bulatkan ke atas (ceil)
+    rounded_val = math.ceil(value)
+    # Format dengan koma untuk ribuan lalu ganti koma menjadi titik
+    indonesian_format = f"{rounded_val:,}".replace(",", ".")
+    return f"Rp {indonesian_format}"
 
 def render_page_header(title: str, subtitle: str):
     """Menampilkan Header Halaman yang lega dan konsisten."""
@@ -51,7 +56,8 @@ def render_feature_card(title: str, description: str, icon: str = "✨"):
 
 def render_kpi_card(title: str, value: str, subtitle: str = "", icon: str = ""):
     """Menampilkan KPI Card spesifik metrik analitik."""
-    sub_html = f'<p class="kpi-subtitle">{subtitle}</p>' if subtitle else ""
+    display_sub = subtitle if subtitle else "&nbsp;"
+    sub_html = f'<p class="kpi-subtitle">{display_sub}</p>'
     icon_html = f'<div class="kpi-icon">{icon}</div>' if icon else ""
     
     st.markdown(f"""
@@ -109,7 +115,11 @@ def create_line_chart(df, x_col, y_col, line_color="#06B6D4"):
     fig = px.line(df, x=x_col, y=y_col, markers=True)
     fig = _apply_plotly_layout(fig)
     fig.update_layout(xaxis_title="", yaxis_title="")
-    fig.update_traces(line_color=line_color, marker=dict(size=8))
+    fig.update_traces(
+        line_color=line_color, 
+        marker=dict(size=8),
+        hovertemplate='<b>%{x}</b><br>%{y}<extra></extra>'
+    )
     return fig
 
 def create_bar_chart(df, x_col, y_col, orientation='v', color_seq=None):
@@ -119,8 +129,10 @@ def create_bar_chart(df, x_col, y_col, orientation='v', color_seq=None):
     if orientation == 'h':
         fig = px.bar(df, x=y_col, y=x_col, orientation='h', color_discrete_sequence=color_seq)
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
+        hovertemp = '<b>%{y}</b><br>%{x}<extra></extra>'
     else:
         fig = px.bar(df, x=x_col, y=y_col, color_discrete_sequence=color_seq)
+        hovertemp = '<b>%{x}</b><br>%{y}<extra></extra>'
         
     fig = _apply_plotly_layout(fig)
     fig.update_layout(xaxis_title="", yaxis_title="")
@@ -128,6 +140,7 @@ def create_bar_chart(df, x_col, y_col, orientation='v', color_seq=None):
     if orientation == 'h':
         fig.update_layout(hovermode="y unified")
         
+    fig.update_traces(hovertemplate=hovertemp)
     return fig
 
 def create_donut_chart(df, names_col, values_col):

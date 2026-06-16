@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from typing import cast, Tuple
+from typing import cast, Tuple, Any
 
 def prepare_sales_time_series(df: pd.DataFrame, product: str | None = None, category: str | None = None) -> pd.DataFrame:
     """
@@ -56,6 +56,10 @@ def create_forecasting_features(df: pd.DataFrame) -> pd.DataFrame:
     df_feat["is_weekend"] = (dates_any.dayofweek >= 5).astype(int)
     df_feat["is_month_start"] = dates_any.is_month_start.astype(int)
     df_feat["is_month_end"] = dates_any.is_month_end.astype(int)
+    
+    # Event-Based Features (Siklus UMKM & Gajian)
+    df_feat["is_payday"] = ((dates_any.day >= 25) | (dates_any.day <= 2)).astype(int) # Efek gajian
+    df_feat["is_mid_month"] = ((dates_any.day >= 14) & (dates_any.day <= 16)).astype(int)
     
     # Fitur Time Series (Lag & Rolling Window) yang dihitung spesifik per Produk
     df_feat["lag_1"] = df_feat.groupby("Produk")["Qty_Terjual"].shift(1)

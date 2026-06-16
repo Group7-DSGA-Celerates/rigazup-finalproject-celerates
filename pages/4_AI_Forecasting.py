@@ -99,7 +99,14 @@ if st.sidebar.button("🚀 Eksekusi Forecasting"):
             predictions = predict_models(trained_models, X_test)
             eval_df = evaluate_predictions(y_test, predictions)
             
-            best_model_name, best_model = select_best_model(eval_df, trained_models)
+            best_model_name, best_model_raw = select_best_model(eval_df, trained_models)
+            
+            if best_model_raw is None:
+                st.error("❌ Gagal menemukan model terbaik.")
+                st.stop()
+                
+            from typing import Any, cast
+            best_model = cast(Any, best_model_raw)
             
             st.session_state["model_evaluation"] = eval_df
             st.session_state["best_model"] = best_model
@@ -195,13 +202,16 @@ if "forecast_result" in st.session_state:
             render_kpi_card("Algoritma Utama", best_name, subtitle="Terpilih berdasarkan akurasi tertinggi", icon="🧠")
             st.markdown("<br>", unsafe_allow_html=True)
             
-            with st.container(border=True):
-                st.markdown("### 📊 Papan Skor Model")
-                st.dataframe(
-                    eval_df.style.highlight_min(subset=["MAE", "RMSE", "MAPE"], color="#16A34A").format(precision=3), 
-                    use_container_width=True
-                )
-                render_insight_box("Fakta Sistem", f"Model {best_name} dipilih otomatis karena memiliki nilai simpangan Error (MAPE) paling minim.", icon="💡")
+            best_row = eval_df[eval_df["model_name"] == best_name]
+            akurasi_persen = 0
+            if not best_row.empty:
+                mape = best_row["MAPE"].values[0]
+                akurasi_persen = max(0, 100 - mape)
+                
+            render_kpi_card("Estimasi Keakuratan", f"{akurasi_persen:.1f}%", subtitle="Berdasarkan pengujian historis", icon="🎯")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            render_insight_box("Fakta Sistem", f"Model {best_name} dipilih secara otomatis karena memiliki tingkat akurasi peramalan masa depan yang paling presisi dibandingkan algoritma lainnya.", icon="💡")
 
         with colB:
             with st.container(border=True):
@@ -230,7 +240,8 @@ if "forecast_result" in st.session_state:
                             x=prod_df["Tanggal"], y=prod_df["Predicted_Qty"], 
                             mode='lines+markers', name=prod, 
                             line=dict(color=c, width=3),
-                            marker=dict(size=6, color=c)
+                            marker=dict(size=6, color=c),
+                            hovertemplate='<b>%{x}</b><br>Estimasi: %{y:.0f} Unit<extra></extra>'
                         ))
                         
                     fig.update_layout(
@@ -257,11 +268,21 @@ if "forecast_result" in st.session_state:
                     st.plotly_chart(fig, use_container_width=True)
             
         st.markdown("### 📋 Tabel Proyeksi Harian")
-        st.dataframe(res_df, use_container_width=True)
+        display_res_df = res_df.copy()
+        display_res_df.columns = [col.replace("_", " ").replace("Qty", "Kuantitas").replace("Predicted", "Estimasi") for col in display_res_df.columns]
+        st.dataframe(display_res_df, use_container_width=True)
         
     with tab2:
-        st.markdown("### 📉 Kesenjangan Kompetisi Algoritma")
-        st.write("Grafik pilar metrik kompetisi. Pilar hijau mendominasi atas rasio eror yang terpendek.")
+        st.markdown("### 📉 Kesenjangan Kompetisi Algoritma (Data Science Area)")
+        st.write("Area ini ditujukan untuk analisis teknikal untuk membandingkan metrik nilai simpangan error riil (RMSE, MAE, MAPE).")
+        
+        with st.expander("⚙️ Tampilkan Papan Skor Metrik Teknis Lengkap"):
+            st.dataframe(
+                eval_df.style.highlight_min(subset=["MAE", "RMSE", "MAPE"], color="#16A34A").format(precision=3), 
+                use_container_width=True
+            )
+            
+        st.markdown("<br>", unsafe_allow_html=True)
         
         def plot_comparison(df, metric_name, title):
             is_dark = st.session_state.get("theme_mode", "Light Mode") == "Dark Mode"
@@ -277,6 +298,7 @@ if "forecast_result" in st.session_state:
                 df_plot, x="model_name", y=metric_name, 
                 title=title, color="Status", color_discrete_map=color_map, text_auto=".2f"
             )
+            fig.update_traces(hovertemplate='<b>%{x}</b><br>' + metric_name + ': %{y:.3f}<extra></extra>')
             fig.update_layout(
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=10, r=10, t=30, b=10), xaxis_title="", yaxis_title="",

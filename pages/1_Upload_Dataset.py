@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 from src.validation import get_required_columns, get_missing_columns, clear_dataset_state
 from src.visualization import load_css, apply_theme, render_sidebar_theme_toggle, render_page_header, render_empty_state
 
@@ -18,17 +19,38 @@ if "dataset_ready" not in st.session_state:
 if not st.session_state["dataset_ready"] or st.session_state["raw_data"] is None:
     render_empty_state(
         "Ruang Penyimpanan Kosong", 
-        "Sistem membutuhkan data historis penjualan untuk melakukan analisis dan prediksi. Silakan unggah file CSV Anda.",
+        "Sistem membutuhkan data historis penjualan untuk melakukan analisis dan prediksi. Silakan unggah file Excel/CSV Anda.",
         icon="📂"
     )
     
     st.info(f"💡 Kolom wajib: {', '.join(get_required_columns())}")
     
-    uploaded_file = st.file_uploader("Pilih file dataset.csv", type=["csv"])
+    # Download template Excel
+    template_df = pd.DataFrame(columns=get_required_columns())
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        template_df.to_excel(writer, index=False, sheet_name='Sheet1')
+    template_excel = output.getvalue()
+    
+    st.download_button(
+        label="📥 Download Template Excel",
+        data=template_excel,
+        file_name="Template_Dataset_RIGAZUP.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        help="Gunakan template Excel ini (tabel rapi) untuk memastikan nama kolom sudah sesuai dengan format sistem."
+    )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Pilih file dataset (.csv / .xlsx)", type=["csv", "xlsx", "xls"])
     
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file)
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+                
             missing_cols = get_missing_columns(df)
             
             if len(missing_cols) > 0:
@@ -55,10 +77,14 @@ else:
             st.write(f"**Total Kolom:** {df.shape[1]}")
         with col2:
             st.write("**Skema (Daftar Kolom):**")
-            st.write(", ".join(df.columns.tolist()))
+            # Format UI columns to remove underscores and abbreviations
+            ui_cols = [col.replace("_", " ").replace("Qty", "Kuantitas") for col in df.columns]
+            st.write(", ".join(ui_cols))
             
     st.markdown("### Preview Keseluruhan Data")
-    st.dataframe(df, use_container_width=True)
+    display_df = df.copy()
+    display_df.columns = ui_cols
+    st.dataframe(display_df, use_container_width=True)
     
     st.markdown("---")
     st.warning("Menghapus dataset akan me-reset seluruh halaman analisis dan prediksi.")
