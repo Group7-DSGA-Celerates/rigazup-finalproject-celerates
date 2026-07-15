@@ -17,6 +17,35 @@ from src.modeling import (
 )
 from src.evaluation import evaluate_predictions
 
+def interpret_model_metrics(best_model_name, mae, rmse, accuracy_pct, avg_demand, product_name):
+    """Generate human-friendly interpretation of model metrics."""
+    if accuracy_pct >= 90:
+        level = "sangat baik"
+        emoji = "🟢"
+        desc = "sangat akurat"
+    elif accuracy_pct >= 75:
+        level = "baik"
+        emoji = "🟡"
+        desc = "cukup akurat"
+    elif accuracy_pct >= 50:
+        level = "cukup"
+        emoji = "🟠"
+        desc = "masih perlu diperhatikan"
+    else:
+        level = "kurang"
+        emoji = "🔴"
+        desc = "perlu lebih banyak data"
+    
+    interpretation = f"""
+{emoji} **Model {best_model_name}** menunjukkan performa **{level}** dengan tingkat akurasi **{accuracy_pct:.0f}%**.
+    
+📊 **Dalam bahasa bisnis:**
+- Prediksi untuk **{product_name}** meleset rata-rata hanya **{mae:.1f} unit** dari permintaan aktual.
+- Untuk produk yang rata-rata terjual **{avg_demand:.0f} unit/hari**, prediksi akan berkisar **{max(0, avg_demand-mae):.0f}–{avg_demand+mae:.0f} unit**.
+- Tingkat kepercayaan model: **{desc}** untuk perencanaan stok.
+    """
+    return interpretation
+
 st.set_page_config(page_title="Forecasting - RIGAZUP", layout="wide")
 load_css()
 apply_theme()
@@ -277,11 +306,76 @@ if "forecast_result" in st.session_state:
         st.write("Area ini ditujukan untuk analisis teknikal untuk membandingkan metrik nilai simpangan error riil (RMSE, MAE, MAPE).")
         
         with st.expander("⚙️ Tampilkan Papan Skor Metrik Teknis Lengkap"):
+            # Tambahkan kolom Akurasi % dan Bintang untuk model terbaik
+            display_eval_df = eval_df.copy()
+            if "R2" in display_eval_df.columns:
+                display_eval_df["Akurasi %"] = display_eval_df["R2"].apply(lambda x: max(0, x * 100))
+            else:
+                display_eval_df["Akurasi %"] = display_eval_df["MAPE"].apply(lambda x: max(0, 100 - x))
+                
+            display_eval_df["Model"] = display_eval_df["model_name"].apply(lambda x: f"{x} ⭐" if x == best_name else x)
+            display_eval_df = display_eval_df.drop(columns=["model_name"]).set_index("Model")
+            
             st.dataframe(
-                eval_df.style.highlight_min(subset=["MAE", "RMSE", "MAPE"], color="#16A34A").format(precision=3), 
+                display_eval_df.style.highlight_max(subset=["Akurasi %"], color="#16A34A").highlight_min(subset=["MAE", "RMSE", "MAPE"], color="#16A34A").format(precision=3), 
                 use_container_width=True
             )
             
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 💡 Interpretasi Model Manusiawi
+        st.markdown("### 💡 Apa Artinya untuk Bisnis Anda?")
+        best_row = eval_df[eval_df["model_name"] == best_name].iloc[0]
+        mae_val = best_row["MAE"]
+        rmse_val = best_row["RMSE"]
+        akurasi_val = max(0, best_row["R2"] * 100) if "R2" in eval_df.columns else max(0, 100 - best_row["MAPE"])
+        
+        filtered_df = df_clean.copy()
+        if selected_cat != "Semua Kategori":
+            filtered_df = filtered_df[filtered_df["Kategori"] == selected_cat]
+        if selected_prod != "Semua Produk":
+            filtered_df = filtered_df[filtered_df["Produk"] == selected_prod]
+            
+        avg_demand = filtered_df["Qty_Terjual"].mean() if not filtered_df.empty else 0
+        product_name_display = selected_prod if selected_prod != "Semua Produk" else "Kategori Terpilih"
+        
+        interpretation = interpret_model_metrics(best_name, mae_val, rmse_val, akurasi_val, avg_demand, product_name_display)
+        
+        st.info(interpretation)
+        
+        if st.button("🤖 Minta Penjelasan AI Lebih Detail", icon="✨"):
+            api_key = st.secrets.get("GEMINI_API_KEY", "")
+            if "gemini_key_nlp" in st.session_state and st.session_state["gemini_key_nlp"]:
+                api_key = st.session_state["gemini_key_nlp"]
+                
+            if not api_key:
+                st.error("⚠️ API Key Gemini tidak ditemukan. Harap masukkan di halaman 'Input Penjualan Baru' (Tab AI) atau 'AI Insight Generator'.")
+            else:
+                with st.spinner("Memanggil Gemini AI..."):
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=api_key)
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        
+                        prompt = f"""
+Kamu adalah konsultan bisnis UMKM Indonesia. Jelaskan hasil evaluasi model ML berikut 
+dalam 2-3 kalimat sederhana yang dipahami pemilik toko kelontong. 
+Jangan gunakan istilah teknis. Fokus pada dampak bisnis.
+
+Data:
+- Model terbaik: {best_name}
+- MAE (rata-rata selisih prediksi): {mae_val:.2f} unit
+- Akurasi: {akurasi_val:.2f}%
+- Produk: {product_name_display}
+- Rata-rata penjualan harian: {avg_demand:.0f} unit
+
+Berikan penjelasan singkat dan actionable.
+"""
+                        response = model.generate_content(prompt)
+                        st.success(response.text)
+                    except Exception as e:
+                        st.error(f"❌ Gagal memanggil Gemini: {str(e)}")
+                        
         st.markdown("<br>", unsafe_allow_html=True)
         
         def plot_comparison(df, metric_name, title):

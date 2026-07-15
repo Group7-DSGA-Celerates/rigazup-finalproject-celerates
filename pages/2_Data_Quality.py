@@ -7,11 +7,11 @@ st.set_page_config(page_title="Data Quality - RIGAZUP", layout="wide")
 load_css()
 apply_theme()
 render_sidebar_theme_toggle()
-check_required_state(["raw_data"])
+check_required_state(["uploaded_data"])
 
 render_page_header("Data Quality & Preprocessing", "Mesin pembersih otomatis untuk menyempurnakan struktur dataset sebelum dianalisis algoritma.")
 
-df_raw = st.session_state["raw_data"]
+df_raw = st.session_state["uploaded_data"]
 
 col1, col2 = st.columns(2)
 with col1:

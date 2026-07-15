@@ -28,7 +28,7 @@ def clear_dataset_state():
     saat user memutuskan menghapus dataset.
     """
     keys_to_remove = [
-        "raw_data",
+        "uploaded_data",
         "dataset_ready",
         "clean_data",
         "product_summary",
@@ -55,7 +55,7 @@ def check_required_state(required_keys: list):
         "best_model": ["clean_data"],
         "stock_summary": ["clean_data"],
         "product_summary": ["clean_data"],
-        "clean_data": ["raw_data"]
+        "clean_data": ["uploaded_data"]
     }
     
     # 1. Bentuk set penuh (resolving dependencies berantai)
@@ -77,8 +77,8 @@ def check_required_state(required_keys: list):
         return True
         
     # 3. Tampilkan pesan kesalahan dari tingkatan yang paling akar (root issue)
-    if "raw_data" in missing:
-        st.warning("⚠️ Dataset mentah belum tersedia. Silakan unggah `dataset.csv` Anda di menu **1. Upload Dataset** terlebih dahulu.")
+    if "uploaded_data" in missing:
+        st.warning("⚠️ Belum ada data. Silakan upload dataset, input transaksi manual, atau gunakan Data Demo terlebih dahulu.")
         st.stop()
         
     if "clean_data" in missing:
