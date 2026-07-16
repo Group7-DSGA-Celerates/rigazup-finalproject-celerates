@@ -118,7 +118,17 @@ def clear_all_data():
 def load_data_to_session():
     df = get_all_transactions()
     if not df.empty:
-        st.session_state['uploaded_data'] = df
+        # Map ke format kolom legacy yang dibutuhkan oleh pipeline ML lama
+        df_mapped = pd.DataFrame()
+        df_mapped["Tanggal"] = df["date"]
+        df_mapped["Produk"] = df["product_name"]
+        df_mapped["Kategori"] = "Umum"  # Fallback default
+        df_mapped["Qty_Terjual"] = df["quantity_sold"]
+        df_mapped["Harga_Satuan"] = df["unit_price"]
+        df_mapped["Total_Penjualan"] = df["quantity_sold"] * df["unit_price"]
+        df_mapped["Stok_Setelah_Transaksi"] = 100  # Fallback numerik default
+        
+        st.session_state['uploaded_data'] = df_mapped
     else:
         st.session_state['uploaded_data'] = None
 

@@ -49,11 +49,9 @@ def check_required_state(required_keys: list):
     Sistem mengecek dependensi secara otomatis (hierarchy).
     """
     dependencies = {
-        "restock_recommendation": ["stock_summary", "forecast_result"],
         "forecast_result": ["clean_data"],
         "model_evaluation": ["clean_data"],
         "best_model": ["clean_data"],
-        "stock_summary": ["clean_data"],
         "product_summary": ["clean_data"],
         "clean_data": ["uploaded_data"]
     }
@@ -85,18 +83,10 @@ def check_required_state(required_keys: list):
         st.warning("⚠️ Dataset belum dibersihkan. Silakan jalankan *preprocessing* di menu **2. Data Quality**.")
         st.stop()
         
-    if "stock_summary" in missing:
-        st.warning("⚠️ Data risiko stok belum diproses. Silakan buka menu **5. Inventory Management** untuk mengekstrak riwayat perputaran gudang.")
-        st.stop()
-        
     if "product_summary" in missing:
-        st.warning("⚠️ Data analisis produk belum siap. Silakan buka menu **3. Business Intelligence** terlebih dahulu.")
+        st.warning("⚠️ Data analisis produk belum siap. Silakan buka menu **3. BI Dashboard** terlebih dahulu.")
         st.stop()
         
     if "forecast_result" in missing or "model_evaluation" in missing or "best_model" in missing:
-        st.warning("💡 Hasil peramalan (*Forecasting*) Machine Learning belum tersedia. Silakan jalankan simulasi algoritma di menu **4. AI Forecasting**.")
-        st.stop()
-        
-    if "restock_recommendation" in missing:
-        st.warning("💡 Jadwal dan kuantitas rekomendasi belanja belum diformulasikan. Silakan proses di menu **5. Inventory Management** terlebih dahulu.")
+        st.warning("💡 Hasil peramalan (*Forecasting*) Machine Learning belum tersedia. Silakan jalankan simulasi algoritma di menu **4. AI Forecaster**.")
         st.stop()

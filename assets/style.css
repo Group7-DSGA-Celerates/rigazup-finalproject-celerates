@@ -319,3 +319,14 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover {
 div[data-testid="stSidebar"] {
     border-right: 1px solid var(--border);
 }
+
+/* Custom Size for st.logo (Enlarge from default 24px) */
+[data-testid="stLogo"] {
+    height: auto !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+[data-testid="stLogo"] img {
+    max-height: 120px !important;
+    width: auto !important;
+}

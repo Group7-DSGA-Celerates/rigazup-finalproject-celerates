@@ -15,12 +15,10 @@ render_sidebar_theme_toggle()
 render_page_header("Executive Summary", "Asisten naratif berbasis AI untuk menerjemahkan kompleksitas metrik ke dalam rangkuman strategis yang siap dibaca.")
 
 from src.validation import check_required_state
-check_required_state(["clean_data", "product_summary", "stock_summary", "restock_recommendation"])
+check_required_state(["clean_data", "product_summary", "forecast_result", "model_evaluation"])
 
 df_clean = st.session_state["clean_data"]
 df_prod = st.session_state["product_summary"]
-df_stock = st.session_state["stock_summary"]
-df_restock = st.session_state["restock_recommendation"]
 
 best_name = st.session_state.get("best_model_name", "AI Model")
 mape_score = "N/A"
@@ -33,8 +31,6 @@ if "model_evaluation" in st.session_state:
 # ================= KUMPULKAN KONTEKS DASAR =================
 sales_insight = generate_sales_insight(df_clean)
 product_insight = generate_product_insight(df_prod)
-stock_insight = generate_stock_insight(df_stock)
-restock_insight = generate_restock_insight(df_restock)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🧠 Integrasi Gemini AI")
@@ -53,27 +49,28 @@ if api_key:
             try:
                 model = genai.GenerativeModel("gemini-2.5-flash")
                 prompt = f"""
-Anda adalah analis bisnis senior dan ahli logistik dari platform bernama RIGAZUP.
+Anda adalah analis sistem dan ahli logistik dari platform bernama RIGAZUP.
 Tugas Anda adalah merangkum data penjualan dan status inventaris ke dalam sebuah 'Executive Summary' yang profesional, ringkas, mudah dibaca, dan actionable (bisa langsung ditindaklanjuti).
-Jangan membahas teknis kode atau database, bicaralah selayaknya konsultan bisnis ke direktur. 
+Jangan membahas teknis kode atau database, bicaralah selayaknya laporan profesional. 
 Gunakan bahasa Indonesia baku yang mengalir, dan gunakan markdown (huruf tebal, bullet points, emoji yang elegan).
+
+ATURAN KETAT:
+1. JANGAN gunakan sapaan personal atau gender seperti "Bapak/Ibu", "Kakak", "Halo", dll. Gunakan sapaan universal "Anda" jika diperlukan.
+2. JANGAN gunakan kata "komputer", "tebakan", "AI", "bot", atau merujuk bahwa narasi ini dikerjakan oleh kecerdasan buatan. Sebut entitas analisis ini sebagai "sistem" atau "algoritma".
+3. Jaga nada bicara (tone) agar terdengar analitis, berwibawa, dan seratus persen objektif (bukan seperti chatbot).
 
 Berikut adalah kalkulasi data mentah yang harus Anda elaborasi menjadi analisis komprehensif:
 
 1. Performa Penjualan & Finansial: {sales_insight}
 2. Keunggulan Produk: {product_insight}
-3. Risiko Stok Gudang (Stockout/Overstock): {stock_insight}
-4. Strategi Restock (Dari algoritma Machine Learning): {restock_insight}
-5. Evaluasi Performa AI: Model peramalan masa depan menggunakan algoritma {best_name} dengan skor Error (MAPE) sebesar {mape_score}.
+3. Evaluasi Performa AI: Model peramalan masa depan menggunakan algoritma {best_name} dengan skor Error (MAPE) sebesar {mape_score}.
 
-Susun dalam format laporan dengan judul: "Laporan Eksekutif Analisis Logistik". Pisahkan ke dalam 5 bab utama berikut:
+Susun dalam format laporan dengan judul: "Laporan Eksekutif Analisis Penjualan & Proyeksi". Pisahkan ke dalam 3 bab utama berikut:
 - Sorotan Utama (Highlight Finansial & Operasional)
-- Evaluasi Risiko Inventaris Gudang
-- Rekomendasi Pengadaan (Restock) Cerdas
-- Strategi Promosi & Bundling (Eksklusif AI: Berikan ide taktis cross-selling dengan mengawinkan produk Overstock dengan produk Best-Seller agar stok mati cepat habis)
-- Proyeksi & Tingkat Kepercayaan Keputusan (Eksklusif AI: Berikan opini apakah direktur bisa mempercayai peramalan ini untuk keputusan finansial berskala besar berdasarkan skor MAPE {mape_score})
+- Strategi Promosi & Bundling (Berikan ide taktis cross-selling dengan mengawinkan produk Best-Seller agar stok cepat habis)
+- Proyeksi & Tingkat Kepercayaan Keputusan (Berikan opini analitis apakah proyeksi ini bisa diandalkan berdasarkan skor MAPE {mape_score})
 
-PENTING: Langsung mulai dari judul laporan. JANGAN tambahkan salam pembuka seperti "Kepada Bapak/Ibu Direktur" atau semacamnya.
+PENTING: Langsung mulai dari judul laporan.
                 """
                 response = model.generate_content(prompt)
                 
@@ -87,10 +84,3 @@ else:
         st.markdown("### 📋 Laporan Situasi Berjalan")
         render_insight_box("Analisis Omset Finansial", sales_insight, icon="💰")
         render_insight_box("Analisis Keunggulan SKU", product_insight, icon="🏆")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.markdown("### 🚨 Laporan Risiko & Aksi Mitigasi")
-        render_insight_box("Pantauan Risiko Gudang", stock_insight, icon="⚠️")
-        render_insight_box("Strategi Pengadaan Darurat", restock_insight, icon="🛒")

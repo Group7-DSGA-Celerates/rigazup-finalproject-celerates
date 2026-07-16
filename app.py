@@ -2,11 +2,12 @@ import streamlit as st
 from src.database import init_db, load_data_to_session
 
 st.set_page_config(
-    page_title="RIGAZUP - ML Inventory Planner",
-    page_icon="📦",
+    page_title="RIGAZUP: AI-Powered Smart Retail & Forecasting Platform",
+    page_icon="assets/logo.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+st.logo("assets/logo.png")
 
 # Inisialisasi Database
 init_db()

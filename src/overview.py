@@ -14,20 +14,35 @@ is_dark = True
 if theme and theme.get("base") == "light":
     is_dark = False
 
+import base64
+
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+logo_b64 = get_base64_image("assets/logo.png")
+logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 4.2rem; margin-right: 15px; vertical-align: middle;">'
+
 if is_dark:
-    st.markdown("""
+    st.markdown(f"""
     <div class="hero-container-dark">
-        <h1>RIGAZUP</h1>
-        <p class="subtitle">Forecasting Penjualan dan Restock Planner Berbasis Machine Learning</p>
-        <p class="desc">Aplikasi cerdas untuk membantu UMKM menganalisis penjualan, memprediksi demand masa depan, dan menentukan rekomendasi pengadaan logistik berbasis data secara mutakhir.</p>
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            {logo_html}
+            <h1 style="margin-bottom: 0;">RIGAZUP</h1>
+        </div>
+        <p class="subtitle">AI-Powered Smart Retail & Forecasting Platform</p>
+        <p class="desc">Aplikasi cerdas untuk membantu UMKM menganalisis penjualan, memprediksi demand masa depan, dan mencetak laporan eksekutif secara otomatis menggunakan Generative AI.</p>
     </div>
     """, unsafe_allow_html=True)
 else:
-    st.markdown("""
+    st.markdown(f"""
     <div class="hero-container-light">
-        <h1>RIGAZUP</h1>
-        <p class="subtitle">Forecasting Penjualan dan Restock Planner Berbasis Machine Learning</p>
-        <p class="desc">Aplikasi cerdas untuk membantu UMKM menganalisis penjualan, memprediksi demand masa depan, dan menentukan rekomendasi pengadaan logistik berbasis data secara mutakhir.</p>
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            {logo_html}
+            <h1 style="margin-bottom: 0;">RIGAZUP</h1>
+        </div>
+        <p class="subtitle">AI-Powered Smart Retail & Forecasting Platform</p>
+        <p class="desc">Aplikasi cerdas untuk membantu UMKM menganalisis penjualan, memprediksi demand masa depan, dan mencetak laporan eksekutif secara otomatis menggunakan Generative AI.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -75,7 +90,7 @@ with col1:
     render_feature_card("Business Intelligence", "Visualisasi interaktif tren omset, analisis kategori produk, dan pemantauan KPI secara real-time.", icon="📊")
 
 with col2:
-    render_feature_card("Catat Nota AI (NLP)", "Tidak perlu repot input manual, cukup ketik bahasa kasual dan Gemini AI akan mengekstraknya ke database.", icon="🤖")
+    render_feature_card("Catat Nota AI (NLP)", "Tidak perlu repot input manual, cukup ketik bahasa kasual dan Gemini AI akan mengekstraknya ke database.", icon="🪄")
     render_feature_card("AI Forecasting", "Prediksi omset dan permintaan barang di masa depan dengan algoritma Machine Learning.", icon="📈")
     render_feature_card("AI Insight Generator", "Narasi cerdas Gemini yang merangkum kondisi kesehatan bisnis layaknya asisten analis data pribadi.", icon="💡")
 

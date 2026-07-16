@@ -155,7 +155,7 @@ with tab2:
                 
                 try:
                     # Menggunakan gemini-pro atau gemini-1.5-flash
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-2.5-flash")
                     
                     EXTRACTION_PROMPT = f"""
 Kamu adalah asisten kasir toko kelontong Indonesia.

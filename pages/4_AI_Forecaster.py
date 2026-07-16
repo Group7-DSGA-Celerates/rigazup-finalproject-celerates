@@ -40,7 +40,7 @@ def interpret_model_metrics(best_model_name, mae, rmse, accuracy_pct, avg_demand
 {emoji} **Model {best_model_name}** menunjukkan performa **{level}** dengan tingkat akurasi **{accuracy_pct:.0f}%**.
     
 📊 **Dalam bahasa bisnis:**
-- Prediksi untuk **{product_name}** meleset rata-rata hanya **{mae:.1f} unit** dari permintaan aktual.
+- Prediksi untuk **{product_name}** meleset rata-rata hanya **{mae:.0f} unit** dari permintaan aktual.
 - Untuk produk yang rata-rata terjual **{avg_demand:.0f} unit/hari**, prediksi akan berkisar **{max(0, avg_demand-mae):.0f}–{avg_demand+mae:.0f} unit**.
 - Tingkat kepercayaan model: **{desc}** untuk perencanaan stok.
     """
@@ -60,6 +60,14 @@ df_clean = st.session_state["clean_data"].copy()
 
 st.sidebar.header("⚙️ Konfigurasi AI")
 
+# Input API Key Gemini (Bisa dibagikan antar halaman via session_state)
+st.sidebar.text_input(
+    "Google Gemini API Key (Opsional)", 
+    type="password", 
+    help="Dibutuhkan jika Anda ingin menggunakan fitur 'Minta Penjelasan AI Lebih Detail' di bawah grafik evaluasi.",
+    key="gemini_key_nlp"
+)
+
 # 1. Pilihan Kategori dan Produk (Saling berkaitan)
 available_cats = ["Semua Kategori"] + sorted(df_clean["Kategori"].dropna().unique().tolist())
 selected_cat = st.sidebar.selectbox("Pilih Kategori", available_cats)
@@ -78,9 +86,11 @@ import numpy as np
 
 last_date_db = df_clean["Tanggal"].max()
 min_allowed_date = last_date_db + datetime.timedelta(days=1)
-default_target_date = min_allowed_date + datetime.timedelta(days=13)
+default_start_date = min_allowed_date
+default_end_date = min_allowed_date + datetime.timedelta(days=13)
 
-target_date = st.sidebar.date_input("Target Tanggal Akhir Forecast", min_value=min_allowed_date, value=default_target_date)
+start_date = st.sidebar.date_input("Target Tanggal Awal Forecast", min_value=min_allowed_date, value=default_start_date)
+target_date = st.sidebar.date_input("Target Tanggal Akhir Forecast", min_value=start_date, value=default_end_date)
 forecast_period = (pd.to_datetime(target_date).date() - last_date_db.date()).days
 
 if st.sidebar.button("🚀 Eksekusi Forecasting"):
@@ -203,8 +213,12 @@ if st.sidebar.button("🚀 Eksekusi Forecasting"):
             
             if future_rows:
                 res_df = pd.DataFrame(future_rows)
+                # Filter hasil hanya untuk periode yang dipilih
+                mask = (res_df["Tanggal"].dt.date >= pd.to_datetime(start_date).date()) & (res_df["Tanggal"].dt.date <= pd.to_datetime(target_date).date())
+                res_df = res_df[mask]
+                
                 st.session_state["forecast_result"] = res_df
-                st.success(f"🎉 Simulasi Masa Depan Rampung! AI berhasil meramal {forecast_period} hari ke depan.")
+                st.success(f"🎉 Simulasi Masa Depan Rampung! AI berhasil meramal periode yang dipilih.")
             else:
                 st.error("Gagal melakukan iterasi prediksi masa depan.")
                 
@@ -355,21 +369,23 @@ if "forecast_result" in st.session_state:
                     try:
                         import google.generativeai as genai
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        model = genai.GenerativeModel("gemini-2.5-flash")
                         
                         prompt = f"""
-Kamu adalah konsultan bisnis UMKM Indonesia. Jelaskan hasil evaluasi model ML berikut 
-dalam 2-3 kalimat sederhana yang dipahami pemilik toko kelontong. 
-Jangan gunakan istilah teknis. Fokus pada dampak bisnis.
+Anda adalah analis sistem tingkat lanjut. Jelaskan hasil evaluasi model peramalan (forecasting) berikut dalam 2-3 kalimat lugas, profesional, dan universal. 
 
-Data:
-- Model terbaik: {best_name}
-- MAE (rata-rata selisih prediksi): {mae_val:.2f} unit
+ATURAN KETAT:
+1. JANGAN gunakan sapaan personal atau gender seperti "Bapak/Ibu", "Kakak", "Halo", dll. Gunakan sudut pandang objektif atau sapaan universal "Anda".
+2. JANGAN gunakan kata "komputer", "tebakan", "AI", "bot", atau kata apa pun yang merujuk bahwa ini dikerjakan oleh mesin atau kecerdasan buatan. Gunakan istilah "sistem" atau "algoritma".
+3. JANGAN gunakan istilah teknis statistik (seperti MAE/RMSE/R2) secara kaku, tapi terjemahkan langsung ke dampaknya pada manajemen stok dan bisnis.
+4. Berikan insight yang bisa langsung ditindaklanjuti.
+
+Data Evaluasi:
+- Algoritma terbaik: {best_name}
+- MAE (rata-rata selisih proyeksi): {mae_val:.0f} unit
 - Akurasi: {akurasi_val:.2f}%
 - Produk: {product_name_display}
-- Rata-rata penjualan harian: {avg_demand:.0f} unit
-
-Berikan penjelasan singkat dan actionable.
+- Rata-rata penjualan harian aktual: {avg_demand:.0f} unit
 """
                         response = model.generate_content(prompt)
                         st.success(response.text)
