@@ -1,776 +1,807 @@
-# 📦 PRD: RIGAZUP v2.0 — Update & Fitur Baru
+# 📦 PRD: RIGAZUP v3.0 — Enterprise RPL Edition
 
-> **Product:** RIGAZUP — ML-Powered Smart Inventory Planner for MSMEs
-> **Live App:** https://rigazup.streamlit.app
-> **Repository:** https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates
-> **Pengembang:** Rian Sholihan (NIM: 23051204384) — S1 Teknik Informatika, Fakultas Teknik, Universitas Negeri Surabaya
-> **Tanggal PRD:** 15 Juli 2026
-> **Versi:** 2.0
+> **Produk:** RIGAZUP — Sistem Informasi Point of Sales (POS) dan Manajemen Inventaris Berbasis Web  
+> **Komposisi Target:** 90% Rekayasa Perangkat Lunak (RPL) | 10% Kecerdasan Buatan (AI)  
+> **Pengembang:** Rian Sholihan (NIM: 23051204384) — S1 Teknik Informatika, Universitas Negeri Surabaya  
+> **Versi:** 3.0 (Migrasi Arsitektur ke Django MVT)  
+> **Tanggal PRD:** 17 Juli 2026
 
 ---
 
 ## 1. Ringkasan Eksekutif
 
-RIGAZUP v2.0 adalah pembaruan major yang mentransformasi aplikasi dari sebuah *proof-of-concept* menjadi **alat operasional harian** yang siap digunakan oleh pemilik UMKM. Update ini berfokus pada 5 area utama:
+RIGAZUP v3.0 adalah perombakan arsitektural berskala besar (*Major Refactor*) dari aplikasi analitik berbasis **Streamlit** (v2.0) menjadi **Sistem Perangkat Lunak Skala Industri** (*Production-Ready*) berbasis **Django**. Pembaruan ini menggeser fokus dari Data Science/ML menjadi **90% penguatan Rekayasa Perangkat Lunak** — mencakup arsitektur MVT, keamanan RBAC, database relasional ternormalisasi, RESTful API, pengujian otomatis, dan praktik *Clean Code* — dengan **10% integrasi AI** sebagai fitur penunjang produktivitas kasir.
 
-| # | Fitur | Prioritas | Dampak |
-|---|---|---|---|
-| 1 | Mode Kasir / Input Transaksi Harian | 🔴 Utama | Menghilangkan ketergantungan pada CSV untuk operasional harian |
-| 2 | Catat Nota via Teks Natural (Gemini AI) | 🟠 Tinggi | *Killer feature* — input transaksi pakai bahasa sehari-hari |
-| 3 | Tombol "Gunakan Data Demo" | 🟡 Sedang | Onboarding instan untuk pengguna baru |
-| 4 | Interpretasi Model yang Manusiawi | 🟡 Sedang | Metrik ML diterjemahkan ke bahasa bisnis |
-| 5 | Rebranding "About RIGAZUP" | 🟢 Rendah | Update kredit pengembang |
+### Mengapa Migrasi?
+
+RIGAZUP v2.0 (Streamlit) memiliki fondasi ML/DS yang kuat, namun dari perspektif RPL terdapat kelemahan kritis:
+
+| Masalah v2.0 | Dampak | Solusi v3.0 |
+|---|---|---|
+| Tidak ada sistem login/autentikasi | Siapapun bisa akses semua fitur | RBAC (Owner vs Kasir) dengan Django Auth |
+| SQL Injection di `get_today_transactions()` | Kerentanan keamanan | Django ORM (parameterized queries) |
+| Database denormalisasi (2 tabel flat) | Integritas data lemah, FK pada TEXT | 5 tabel ternormalisasi, FK pada INTEGER |
+| Stok hardcoded = 100 (`load_data_to_session`) | Analisis stok selalu salah | Stok real-time dari tabel `products` |
+| Tidak ada test assertions (11 test files kosong) | Zero quality assurance | Django TestCase + pytest + coverage |
+| Session state hilang saat refresh browser | Data volatile | Server-side sessions + DB persistence |
+| Frontend-backend tightly coupled | Sulit di-maintain dan di-test | MVT separation of concerns |
+
+### Komposisi Disiplin Target (90% RPL)
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│   🔧 RPL (Software Engineering)     ██████████████████░░  90%  │
+│   🧠 AI (Generative AI / NLP)       ██░░░░░░░░░░░░░░░░░░  10%  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+| Komponen RPL | Target % | Cakupan |
+|---|:---:|---|
+| Arsitektur MVT (Django) | 25% | Models, Views, Templates, URL routing, middleware |
+| Database Relasional & ORM | 20% | 5 tabel ternormalisasi, migrations, constraints, indexes |
+| Autentikasi & RBAC | 15% | Login/logout, session, role-based permissions, middleware guard |
+| Pengujian Perangkat Lunak | 15% | Unit test, integration test, black-box, SUS |
+| CRUD & Business Logic | 10% | Manajemen produk, transaksi, pemotongan stok, validasi |
+| Pelaporan & Export | 5% | PDF/Excel report generation, template rendering |
+| **Subtotal RPL** | **90%** | |
+| Integrasi AI (Gemini NLP) | 10% | Catat nota bahasa natural → JSON → auto-fill form kasir |
+| **Total** | **100%** | |
 
 ---
 
-## 2. Arsitektur Sistem Saat Ini (AS-IS)
+## 2. Arsitektur Sistem
+
+### 2.1 Perbandingan AS-IS vs TO-BE
+
+| Aspek | ❌ v2.0 (Streamlit) | ✅ v3.0 (Django) |
+|---|---|---|
+| **Framework** | Streamlit (script-based) | Django 5.x (MVT framework) |
+| **Arsitektur** | Monolitik, stateless `st.session_state` | Model-View-Template (MVT) |
+| **Frontend** | Streamlit widgets + custom CSS | Django Templates + Bootstrap 5 |
+| **Database** | SQLite 2 tabel (denormalisasi) | SQLite (dev) / PostgreSQL (prod), 5 tabel ternormalisasi |
+| **Autentikasi** | Tidak ada | Django Auth + RBAC middleware |
+| **Keamanan** | SQL injection ada, XSS via `unsafe_allow_html` | ORM parameterized, CSRF protection, XSS escaped |
+| **Testing** | 11 file tanpa assertion | Django TestCase + pytest + coverage ≥ 80% |
+| **API** | Tidak ada | RESTful internal + Gemini external API |
+| **Session** | Browser-only (`st.session_state`) | Server-side sessions (DB-backed) |
+| **Deployment** | `streamlit run app.py` (lokal) | `gunicorn` + Nginx (production-ready) |
+
+### 2.2 Diagram Arsitektur v3.0
+
+```mermaid
+flowchart TD
+    subgraph "🖥️ Frontend — Django Templates + Bootstrap 5"
+        LOGIN["Halaman Login"]
+        DASH_OWNER["Dashboard Pemilik<br/>(Ringkasan Keuangan)"]
+        POS["Halaman Kasir<br/>(Input Transaksi)"]
+        INV["Manajemen Inventaris<br/>(CRUD Produk)"]
+        EMP["Manajemen Karyawan<br/>(CRUD Kasir)"]
+        REPORT["Halaman Laporan<br/>(Export PDF/Excel)"]
+    end
+
+    subgraph "⚙️ Backend — Django Views + Business Logic"
+        AUTH["Auth Middleware<br/>(Login Required)"]
+        RBAC["RBAC Middleware<br/>(Role Permission Check)"]
+        CRUD["CRUD Views<br/>(Products, Transactions)"]
+        STOCK["Stock Engine<br/>(Auto-Deduct, Alert)"]
+        REPORT_GEN["Report Generator<br/>(PDF: ReportLab / Excel: openpyxl)"]
+        NLP_SVC["NLP Service<br/>(Gemini API Client)"]
+    end
+
+    subgraph "🗄️ Storage — Django ORM + RDBMS"
+        DB[("Database<br/>SQLite / PostgreSQL")]
+        USERS["users"]
+        CATEGORIES["categories"]
+        PRODUCTS["products"]
+        TRX["transactions"]
+        TRX_DETAIL["transaction_details"]
+    end
+
+    subgraph "🌐 External API"
+        GEMINI(("Google Gemini API<br/>(gemini-2.5-flash)"))
+    end
+
+    LOGIN --> AUTH
+    DASH_OWNER --> AUTH
+    POS --> AUTH
+    INV --> AUTH
+    EMP --> AUTH
+    REPORT --> AUTH
+
+    AUTH --> RBAC
+    RBAC --> CRUD
+    RBAC --> STOCK
+    RBAC --> REPORT_GEN
+
+    POS --> NLP_SVC
+    NLP_SVC -.->|"HTTP POST"| GEMINI
+    GEMINI -.->|"JSON Response"| NLP_SVC
+
+    CRUD --> DB
+    STOCK --> DB
+    REPORT_GEN --> DB
+
+    DB --- USERS
+    DB --- CATEGORIES
+    DB --- PRODUCTS
+    DB --- TRX
+    DB --- TRX_DETAIL
+
+    style GEMINI fill:#ff6b6b,color:#fff
+    style DB fill:#4ecdc4,color:#fff
+    style AUTH fill:#f39c12,color:#fff
+    style RBAC fill:#e67e22,color:#fff
+```
+
+### 2.3 Struktur Proyek Django
+
+```
+rigazup/
+├── manage.py
+├── rigazup/                        # Project config
+│   ├── settings.py                 # Database, auth, middleware config
+│   ├── urls.py                     # Root URL routing
+│   ├── wsgi.py / asgi.py           # Deployment entry points
+│   └── middleware.py               # Custom RBAC middleware
+│
+├── accounts/                       # Django App: Authentication & RBAC
+│   ├── models.py                   # User model (extends AbstractUser, +role field)
+│   ├── views.py                    # Login, logout, register views
+│   ├── forms.py                    # LoginForm, RegisterForm
+│   ├── decorators.py               # @owner_required, @cashier_required
+│   ├── urls.py
+│   ├── admin.py
+│   └── tests.py                    # Auth unit tests
+│
+├── inventory/                      # Django App: Product & Category CRUD
+│   ├── models.py                   # Category, Product models
+│   ├── views.py                    # CRUD views (list, create, update, delete)
+│   ├── forms.py                    # ProductForm (with validation)
+│   ├── urls.py
+│   ├── admin.py
+│   └── tests.py                    # Inventory unit tests
+│
+├── transactions/                   # Django App: POS & Transaction Management
+│   ├── models.py                   # Transaction, TransactionDetail models
+│   ├── views.py                    # POS view, history view, NLP processing
+│   ├── forms.py                    # TransactionForm
+│   ├── services/
+│   │   ├── stock_engine.py         # Auto-deduct stock, low-stock alert
+│   │   ├── nlp_service.py          # Gemini API client (AI 10%)
+│   │   └── report_service.py       # PDF/Excel generation
+│   ├── urls.py
+│   ├── admin.py
+│   └── tests.py                    # Transaction + NLP unit tests
+│
+├── dashboard/                      # Django App: Owner Dashboard & Reports
+│   ├── views.py                    # Dashboard analytics, report download
+│   ├── urls.py
+│   └── tests.py                    # Dashboard unit tests
+│
+├── templates/                      # Global Django templates
+│   ├── base.html                   # Base layout (Bootstrap 5, navbar, sidebar)
+│   ├── accounts/
+│   │   ├── login.html
+│   │   └── register.html
+│   ├── inventory/
+│   │   ├── product_list.html
+│   │   ├── product_form.html
+│   │   └── category_list.html
+│   ├── transactions/
+│   │   ├── pos.html                # Halaman kasir
+│   │   ├── history.html
+│   │   └── nlp_input.html          # AI nota input
+│   └── dashboard/
+│       ├── overview.html           # KPI cards, charts
+│       └── report.html             # Report preview & download
+│
+├── static/
+│   ├── css/style.css               # Custom CSS (migrated from Streamlit)
+│   ├── js/pos.js                   # POS interactivity (cart, auto-calculate)
+│   └── img/logo.png
+│
+├── tests/                          # Integration & E2E tests
+│   ├── test_integration.py
+│   ├── test_rbac.py
+│   └── test_stock_engine.py
+│
+├── requirements.txt
+└── pytest.ini / setup.cfg
+```
+
+---
+
+## 3. Skema Database (Entity Relationship Diagram)
+
+### 3.1 ER Diagram
+
+```mermaid
+erDiagram
+    users ||--o{ transactions : "creates"
+    categories ||--o{ products : "contains"
+    products ||--o{ transaction_details : "sold_in"
+    transactions ||--|{ transaction_details : "has_items"
+
+    users {
+        int id PK
+        string username UK "NOT NULL"
+        string password_hash "NOT NULL (Django hashed)"
+        string full_name "NOT NULL"
+        enum role "owner | cashier"
+        boolean is_active "DEFAULT true"
+        datetime created_at
+        datetime last_login
+    }
+
+    categories {
+        int id PK
+        string name UK "NOT NULL"
+        string description "NULLABLE"
+        datetime created_at
+    }
+
+    products {
+        int id PK
+        string name "NOT NULL"
+        string sku UK "NULLABLE (auto-generated)"
+        int category_id FK "REFERENCES categories(id)"
+        decimal buy_price "NOT NULL (Harga Modal)"
+        decimal sell_price "NOT NULL (Harga Jual)"
+        int stock "NOT NULL, DEFAULT 0, CHECK >= 0"
+        int min_stock "DEFAULT 10 (Low Stock Alert Threshold)"
+        boolean is_active "DEFAULT true"
+        datetime created_at
+        datetime updated_at
+    }
+
+    transactions {
+        int id PK
+        string invoice_number UK "AUTO (INV-YYYYMMDD-XXXX)"
+        int user_id FK "REFERENCES users(id)"
+        datetime transaction_date "NOT NULL"
+        decimal total_amount "NOT NULL"
+        string source "manual | nlp | csv"
+        string notes "NULLABLE"
+        datetime created_at
+    }
+
+    transaction_details {
+        int id PK
+        int transaction_id FK "REFERENCES transactions(id) ON DELETE CASCADE"
+        int product_id FK "REFERENCES products(id)"
+        int quantity "NOT NULL, CHECK > 0"
+        decimal unit_price "NOT NULL (Harga saat transaksi)"
+        decimal subtotal "quantity * unit_price"
+    }
+```
+
+### 3.2 Perubahan dari v2.0
+
+| Aspek | v2.0 (SQLite Flat) | v3.0 (RDBMS Ternormalisasi) |
+|---|---|---|
+| **Jumlah tabel** | 2 (`products`, `transactions`) | 5 tabel ternormalisasi |
+| **Foreign Key** | `TEXT` (product_name) | `INTEGER` (proper FK) |
+| **User management** | Tidak ada | Tabel `users` dengan role |
+| **Kategori** | Hardcoded `"Umum"` | Tabel `categories` tersendiri |
+| **Stok** | Hardcoded `100` | Kolom `stock` real-time di `products`, auto-deduct |
+| **Harga Modal** | Dihitung `sell_price × 0.7` | Kolom `buy_price` eksplisit di `products` |
+| **Detail transaksi** | Flat (1 row = 1 item) | Header-detail (1 nota = N item) |
+| **Invoice number** | Tidak ada | Auto-generated `INV-YYYYMMDD-XXXX` |
+| **Constraints** | Tidak ada | `CHECK`, `UNIQUE`, `NOT NULL`, `ON DELETE CASCADE` |
+| **Indexes** | Tidak ada | Pada `transaction_date`, `product_name`, `user_id` |
+
+### 3.3 Django Models (Implementasi)
+
+```python
+# accounts/models.py
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class User(AbstractUser):
+    class Role(models.TextChoices):
+        OWNER = 'owner', 'Pemilik Toko'
+        CASHIER = 'cashier', 'Kasir'
+
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.CASHIER)
+    full_name = models.CharField(max_length=150)
+
+# inventory/models.py
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    sku = models.CharField(max_length=50, unique=True, blank=True)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
+    buy_price = models.DecimalField(max_digits=12, decimal_places=2)
+    sell_price = models.DecimalField(max_digits=12, decimal_places=2)
+    stock = models.PositiveIntegerField(default=0)
+    min_stock = models.PositiveIntegerField(default=10)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.buy_price >= self.sell_price:
+            raise ValidationError('Harga modal harus lebih kecil dari harga jual.')
+
+# transactions/models.py
+class Transaction(models.Model):
+    invoice_number = models.CharField(max_length=20, unique=True, editable=False)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    transaction_date = models.DateTimeField()
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    source = models.CharField(max_length=10, default='manual')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class TransactionDetail(models.Model):
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='details')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2)
+```
+
+---
+
+## 4. Spesifikasi Fitur (Epics & User Stories)
+
+### 4.1 🔴 [RPL] Arsitektur MVT — Django Migration (25%)
+
+**Deskripsi:** Migrasi seluruh logika aplikasi dari Streamlit (script-based) ke Django MVT (Model-View-Template) dengan separation of concerns yang ketat.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-01 | Sebagai developer, saya ingin setiap fitur terorganisir dalam Django App terpisah | 4 apps: `accounts`, `inventory`, `transactions`, `dashboard` |
+| US-02 | Sebagai developer, saya ingin URL routing yang RESTful dan konsisten | Semua URL mengikuti pola `/app/resource/action/` |
+| US-03 | Sebagai developer, saya ingin template inheritance yang DRY | Semua halaman extend `base.html` dengan navbar + sidebar |
+| US-04 | Sebagai developer, saya ingin static files terkelola dengan baik | CSS/JS/Images served via `{% static %}` tag |
+| US-05 | Sebagai developer, saya ingin konfigurasi terpisah untuk dev dan production | `settings/base.py`, `settings/dev.py`, `settings/prod.py` |
+
+### 4.2 🔴 [RPL] Autentikasi & RBAC (15%)
+
+**Deskripsi:** Sistem login/logout dan kontrol akses berbasis peran (Role-Based Access Control) menggunakan Django Auth.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-06 | Sebagai pengguna, saya harus login sebelum mengakses fitur apapun | Redirect ke `/login/` jika belum authenticated |
+| US-07 | Sebagai pemilik toko, saya bisa melihat dashboard keuangan (laba/rugi) | Dashboard hanya tampil untuk `role=owner` |
+| US-08 | Sebagai pemilik toko, saya bisa menambah/menghapus akun kasir | CRUD karyawan hanya untuk `role=owner` |
+| US-09 | Sebagai kasir, saya hanya bisa akses halaman POS dan riwayat transaksi saya | Kasir tidak bisa akses `/dashboard/`, `/inventory/`, `/employees/` |
+| US-10 | Sebagai kasir, saya hanya melihat transaksi yang saya buat hari ini | Filter `user_id=current_user` dan `date=today` |
+| US-11 | Sebagai pengguna, saya bisa logout dan session saya dihancurkan | Session invalidated, redirect ke login |
+
+**Implementasi RBAC:**
+
+```python
+# accounts/decorators.py
+from functools import wraps
+from django.shortcuts import redirect
+from django.contrib import messages
+
+def owner_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if request.user.role != 'owner':
+            messages.error(request, 'Anda tidak memiliki akses ke halaman ini.')
+            return redirect('transactions:pos')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def cashier_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if request.user.role not in ('owner', 'cashier'):
+            return redirect('accounts:login')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+```
+
+**Matriks Akses:**
+
+| Halaman | URL | Owner | Kasir | Anonymous |
+|---|---|:---:|:---:|:---:|
+| Login | `/login/` | ✅ | ✅ | ✅ |
+| Dashboard Keuangan | `/dashboard/` | ✅ | ❌ | ❌ |
+| Manajemen Produk | `/inventory/` | ✅ | ❌ | ❌ |
+| Manajemen Karyawan | `/employees/` | ✅ | ❌ | ❌ |
+| Laporan (PDF/Excel) | `/reports/` | ✅ | ❌ | ❌ |
+| POS / Kasir | `/pos/` | ✅ | ✅ | ❌ |
+| Riwayat Transaksi | `/transactions/` | ✅ (semua) | ✅ (sendiri) | ❌ |
+| Catat Nota AI | `/pos/nlp/` | ✅ | ✅ | ❌ |
+
+### 4.3 🔴 [RPL] Database Relasional & ORM (20%)
+
+**Deskripsi:** Migrasi dari 2 tabel flat SQLite ke 5 tabel ternormalisasi dengan constraints, indexes, dan Django ORM.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-12 | Sebagai developer, saya ingin FK menggunakan INTEGER (bukan TEXT) | Semua relasi melalui `ForeignKey(Model)` |
+| US-13 | Sebagai pemilik, saya ingin kategori produk bisa dikelola | CRUD Categories terpisah dari Products |
+| US-14 | Sebagai pemilik, saya ingin harga modal (buy_price) diinput manual | Tidak lagi dihitung otomatis `sell_price × 0.7` |
+| US-15 | Sebagai pemilik, saya ingin stok berkurang otomatis saat transaksi | `product.stock -= detail.quantity` dalam atomic transaction |
+| US-16 | Sebagai pemilik, saya ingin alert jika stok di bawah minimum | Visual badge "Stok Rendah" jika `stock < min_stock` |
+| US-17 | Sebagai developer, saya ingin data integrity dijaga oleh DB constraints | `CHECK(stock >= 0)`, `ON DELETE CASCADE/PROTECT`, `UNIQUE` |
+| US-18 | Sebagai developer, saya ingin migrations terkelola | `python manage.py makemigrations` + `migrate` |
+
+**Stock Engine (Auto-Deduct):**
+
+```python
+# transactions/services/stock_engine.py
+from django.db import transaction as db_transaction
+from django.core.exceptions import ValidationError
+from inventory.models import Product
+
+def process_transaction(transaction_obj, items):
+    """
+    Atomic transaction: simpan detail + potong stok.
+    Jika stok tidak cukup, rollback seluruh transaksi.
+    """
+    with db_transaction.atomic():
+        for item in items:
+            product = Product.objects.select_for_update().get(id=item['product_id'])
+
+            if product.stock < item['quantity']:
+                raise ValidationError(
+                    f'Stok {product.name} tidak cukup. '
+                    f'Tersedia: {product.stock}, diminta: {item["quantity"]}'
+                )
+
+            product.stock -= item['quantity']
+            product.save()
+
+            TransactionDetail.objects.create(
+                transaction=transaction_obj,
+                product=product,
+                quantity=item['quantity'],
+                unit_price=product.sell_price,
+                subtotal=item['quantity'] * product.sell_price,
+            )
+```
+
+### 4.4 🟠 [RPL] CRUD & Business Logic (10%)
+
+**Deskripsi:** Operasi Create-Read-Update-Delete untuk produk, kategori, dan transaksi dengan validasi bisnis.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-19 | Sebagai pemilik, saya bisa menambah produk baru dengan validasi | Form: nama, kategori, harga beli, harga jual, stok awal. Validasi: harga beli < harga jual |
+| US-20 | Sebagai pemilik, saya bisa mengedit harga dan stok produk | Update form dengan audit trail (`updated_at`) |
+| US-21 | Sebagai pemilik, saya bisa menonaktifkan produk (soft delete) | Set `is_active=False`, produk tidak muncul di POS |
+| US-22 | Sebagai kasir, saya bisa membuat transaksi multi-item | Keranjang belanja: pilih produk → qty → auto-hitung subtotal → simpan |
+| US-23 | Sebagai kasir, saya bisa melihat riwayat transaksi saya hari ini | Filter by `user_id` dan `date`, tampilkan dengan pagination |
+| US-24 | Sebagai pemilik, saya bisa melihat semua transaksi dari semua kasir | Full transaction list dengan filter tanggal, kasir, dan produk |
+
+### 4.5 🟡 [RPL] Pelaporan & Export (5%)
+
+**Deskripsi:** Fitur manajerial untuk mengunduh rekapitulasi data keuangan dalam format PDF dan Excel.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-25 | Sebagai pemilik, saya bisa download laporan bulanan (PDF) | PDF berisi: total pendapatan, total HPP, laba kotor, top 10 produk |
+| US-26 | Sebagai pemilik, saya bisa download data transaksi (Excel) | Excel file dengan filter tanggal, sheet per kategori |
+| US-27 | Sebagai pemilik, saya bisa melihat preview laporan di browser | HTML report view sebelum download |
+
+### 4.6 🟡 [AI 10%] Catat Nota AI — Integrasi Gemini NLP
+
+**Deskripsi:** Fitur pendukung AI yang dipertahankan dari v2.0, ditulis ulang sebagai *Service Layer* di Django. Kasir bisa mengetik nota dalam bahasa natural dan sistem otomatis mengekstrak data terstruktur.
+
+| ID | User Story | Acceptance Criteria |
+|:---:|---|---|
+| US-28 | Sebagai kasir, saya bisa ketik nota natural: "Aqua 2, Indomie soto 1" | Gemini API mengekstrak JSON: `[{product, qty}]` |
+| US-29 | Sebagai kasir, saya bisa review hasil AI sebelum menyimpan | Editable preview table, bisa koreksi sebelum confirm |
+| US-30 | Sebagai developer, saya ingin AI service terdecouple dari UI | `nlp_service.py` sebagai standalone service, bisa di-test tanpa Django view |
+
+**NLP Service:**
+
+```python
+# transactions/services/nlp_service.py
+import google.generativeai as genai
+import json
+from django.conf import settings
+from inventory.models import Product
+from difflib import get_close_matches
+
+class NLPService:
+    def __init__(self):
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
+
+    def parse_nota(self, text: str) -> list[dict]:
+        """Parse natural language nota to structured items."""
+        prompt = f"""Ekstrak data penjualan dari teks berikut ke format JSON.
+        Output HANYA array JSON: [{{"product": "nama", "quantity": angka}}]
+        Teks: "{text}"
+        """
+        response = self.model.generate_content(prompt)
+        items = json.loads(response.text)
+
+        # Fuzzy match ke product master
+        product_names = list(Product.objects.values_list('name', flat=True))
+        for item in items:
+            matches = get_close_matches(item['product'], product_names, n=1, cutoff=0.5)
+            item['matched_product'] = matches[0] if matches else None
+            item['confidence'] = 'high' if matches else 'low'
+
+        return items
+```
+
+---
+
+## 5. URL Routing (RESTful)
+
+```python
+# rigazup/urls.py (Root)
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', redirect_to_dashboard),
+    path('accounts/', include('accounts.urls')),
+    path('inventory/', include('inventory.urls')),
+    path('transactions/', include('transactions.urls')),
+    path('dashboard/', include('dashboard.urls')),
+]
+```
+
+| Method | URL | View | Role | Deskripsi |
+|:---:|---|---|:---:|---|
+| GET | `/accounts/login/` | `LoginView` | All | Form login |
+| POST | `/accounts/login/` | `LoginView` | All | Proses login |
+| GET | `/accounts/logout/` | `LogoutView` | Auth | Logout + redirect |
+| GET | `/dashboard/` | `DashboardView` | Owner | Ringkasan keuangan |
+| GET | `/inventory/products/` | `ProductListView` | Owner | Daftar produk |
+| GET | `/inventory/products/create/` | `ProductCreateView` | Owner | Form tambah produk |
+| POST | `/inventory/products/create/` | `ProductCreateView` | Owner | Simpan produk baru |
+| GET | `/inventory/products/<id>/edit/` | `ProductUpdateView` | Owner | Form edit produk |
+| POST | `/inventory/products/<id>/edit/` | `ProductUpdateView` | Owner | Update produk |
+| POST | `/inventory/products/<id>/delete/` | `ProductDeleteView` | Owner | Soft delete produk |
+| GET | `/inventory/categories/` | `CategoryListView` | Owner | Daftar kategori |
+| GET | `/transactions/pos/` | `POSView` | Auth | Halaman kasir |
+| POST | `/transactions/pos/` | `POSView` | Auth | Simpan transaksi |
+| GET | `/transactions/pos/nlp/` | `NLPInputView` | Auth | Form nota AI |
+| POST | `/transactions/pos/nlp/` | `NLPInputView` | Auth | Proses NLP |
+| GET | `/transactions/history/` | `TransactionListView` | Auth | Riwayat transaksi |
+| GET | `/transactions/<id>/` | `TransactionDetailView` | Auth | Detail nota |
+| GET | `/dashboard/reports/` | `ReportView` | Owner | Preview laporan |
+| GET | `/dashboard/reports/pdf/` | `ReportPDFView` | Owner | Download PDF |
+| GET | `/dashboard/reports/excel/` | `ReportExcelView` | Owner | Download Excel |
+| GET | `/accounts/employees/` | `EmployeeListView` | Owner | Daftar kasir |
+| POST | `/accounts/employees/create/` | `EmployeeCreateView` | Owner | Tambah kasir |
+
+---
+
+## 6. Rencana Pengujian Perangkat Lunak
+
+### 6.1 Automated Unit Testing (Django TestCase)
+
+Target: **Coverage ≥ 80%** menggunakan `pytest-cov`.
+
+| Test ID | Modul | Skenario Uji | Expected Result |
+|:---:|---|---|---|
+| T-01 | Auth | Kasir akses URL `/dashboard/` tanpa login | Redirect ke `/login/` (302) |
+| T-02 | Auth | Kasir yang sudah login akses `/dashboard/` | Redirect ke `/pos/` (403 → 302) |
+| T-03 | Auth | Owner login dengan kredensial valid | Redirect ke `/dashboard/` (302) |
+| T-04 | Auth | Login dengan password salah | Tetap di `/login/` + error message |
+| T-05 | CRUD | Tambah produk dengan harga modal > harga jual | `ValidationError` raised |
+| T-06 | CRUD | Tambah produk dengan nama duplikat | `IntegrityError` atau form error |
+| T-07 | Stock | Kasir jual 5 unit, stok tersedia 3 | `ValidationError`, transaksi rollback |
+| T-08 | Stock | Kasir jual 2 unit, stok tersedia 10 | Stok berkurang jadi 8, transaksi tersimpan |
+| T-09 | Stock | Stok produk < `min_stock` | Badge "Stok Rendah" muncul di inventory list |
+| T-10 | Trx | Transaksi multi-item disimpan | 1 row di `transactions` + N rows di `transaction_details` |
+| T-11 | Trx | Invoice number auto-generated | Format `INV-YYYYMMDD-XXXX`, unique |
+| T-12 | NLP | Parse "Aqua 2, Indomie 1" via Gemini | Return `[{product: "Aqua", qty: 2}, ...]` |
+| T-13 | NLP | Gemini API timeout/error | Graceful fallback dengan error message |
+| T-14 | Report | Download PDF laporan bulanan | File response `Content-Type: application/pdf` |
+| T-15 | Report | Download Excel dengan filter tanggal | File response `Content-Type: application/vnd.openxmlformats` |
+| T-16 | RBAC | Kasir POST ke `/inventory/products/create/` | Redirect (403 → redirect) |
+
+```python
+# accounts/tests.py (contoh)
+from django.test import TestCase, Client
+from django.urls import reverse
+from .models import User
+
+class RBACTestCase(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='owner1', password='test123', role='owner'
+        )
+        self.cashier = User.objects.create_user(
+            username='kasir1', password='test123', role='cashier'
+        )
+        self.client = Client()
+
+    def test_cashier_cannot_access_dashboard(self):
+        """T-02: Kasir yang login tidak bisa akses dashboard owner."""
+        self.client.login(username='kasir1', password='test123')
+        response = self.client.get(reverse('dashboard:overview'))
+        self.assertNotEqual(response.status_code, 200)
+        self.assertRedirects(response, reverse('transactions:pos'))
+
+    def test_owner_can_access_dashboard(self):
+        """T-03: Owner bisa akses dashboard."""
+        self.client.login(username='owner1', password='test123')
+        response = self.client.get(reverse('dashboard:overview'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_unauthenticated_redirect_to_login(self):
+        """T-01: User yang belum login di-redirect ke login."""
+        response = self.client.get(reverse('dashboard:overview'))
+        self.assertRedirects(response, '/accounts/login/?next=/dashboard/')
+```
+
+### 6.2 Black-Box Testing (Equivalence Partitioning)
+
+| Test ID | Input Field | Kelas Valid | Kelas Invalid | Expected |
+|:---:|---|---|---|---|
+| BB-01 | Nama Produk | "Indomie Goreng" (1-200 char) | "" (kosong) | Form error: "Field wajib diisi" |
+| BB-02 | Harga Jual | 5000 (positif) | -100 (negatif) | Form error: "Harga tidak valid" |
+| BB-03 | Harga Jual | 5000 (angka) | "abc" (huruf) | Form error: "Masukkan angka" |
+| BB-04 | Qty Transaksi | 3 (positif, ≤ stok) | 0 (nol) | Form error: "Minimum 1" |
+| BB-05 | Qty Transaksi | 5 (≤ stok) | 999 (> stok) | Error: "Stok tidak cukup" |
+| BB-06 | Tanggal Transaksi | 2026-07-17 (valid) | 2030-01-01 (masa depan) | Error: "Tanggal tidak valid" |
+| BB-07 | Username Login | "owner1" (exist) | "hacker123" (not exist) | Error: "Kredensial salah" |
+| BB-08 | Password Login | "correct_pw" | "" (kosong) | Form error: "Field wajib diisi" |
+| BB-09 | Harga Modal vs Jual | Modal 3000 < Jual 5000 | Modal 6000 > Jual 5000 | Error: "Harga modal harus < harga jual" |
+| BB-10 | Stok Awal Produk | 50 (positif) | -10 (negatif) | Form error: "Stok tidak valid" |
+
+### 6.3 System Usability Scale (SUS)
+
+**Metodologi:** Kuesioner kepada 5-10 responden (pemilik UMKM dan kasir) setelah mencoba prototipe.
+
+**10 Pertanyaan SUS Standar** (skala 1-5):
+1. Saya pikir saya akan sering menggunakan sistem ini.
+2. Saya merasa sistem ini terlalu rumit.
+3. Saya merasa sistem ini mudah digunakan.
+4. Saya pikir saya memerlukan bantuan teknis untuk menggunakan sistem ini.
+5. Saya menemukan berbagai fungsi dalam sistem ini terintegrasi dengan baik.
+6. Saya pikir terlalu banyak inkonsistensi dalam sistem ini.
+7. Saya membayangkan kebanyakan orang akan cepat belajar menggunakan sistem ini.
+8. Saya merasa sistem ini sangat tidak praktis.
+9. Saya merasa sangat percaya diri menggunakan sistem ini.
+10. Saya perlu belajar banyak hal sebelum bisa menggunakan sistem ini.
+
+**Target:** Skor SUS > **68** (di atas rata-rata industri).
+
+**Rumus:** SUS Score = ((Σ skor ganjil - 5) + (25 - Σ skor genap)) × 2.5
+
+---
+
+## 7. Keamanan Sistem
+
+| Ancaman | Solusi v3.0 | Implementasi |
+|---|---|---|
+| **SQL Injection** | Django ORM (parameterized queries) | Tidak ada raw SQL; semua melalui `Model.objects.*` |
+| **XSS** | Django auto-escaping | Template `{{ variable }}` otomatis di-escape |
+| **CSRF** | Django CSRF middleware | `{% csrf_token %}` di setiap form POST |
+| **Brute Force Login** | Rate limiting + lockout | `django-axes` atau custom middleware |
+| **Session Hijacking** | Secure cookies | `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SECURE=True` |
+| **Privilege Escalation** | RBAC decorators | `@owner_required` di setiap view sensitif |
+| **Data Leak (Password)** | Django password hashing | `PBKDF2` + salt (Django default) |
+
+---
+
+## 8. Technology Stack v3.0
+
+| Layer | Teknologi | Justifikasi RPL |
+|---|---|---|
+| **Backend** | Django 5.x | MVT architecture, built-in ORM, auth, admin, testing |
+| **Frontend** | Django Templates + Bootstrap 5 | Server-rendered, SEO friendly, responsive |
+| **Database (Dev)** | SQLite 3 | Zero-config, built-in Python |
+| **Database (Prod)** | PostgreSQL 16 | ACID, constraints, concurrent access |
+| **ORM** | Django ORM | Parameterized queries, migrations, model validation |
+| **Testing** | Django TestCase + pytest | Built-in test runner, fixtures, assertions |
+| **Coverage** | pytest-cov | Target ≥ 80% |
+| **Report PDF** | ReportLab / WeasyPrint | Python PDF generation |
+| **Report Excel** | openpyxl | Python Excel generation |
+| **AI (10%)** | Google Gemini API (gemini-2.5-flash) | NLP nota → JSON structured data |
+| **Deployment** | Gunicorn + Whitenoise | Production WSGI server + static files |
+
+---
+
+## 9. Strategi Migrasi dari v2.0
+
+### Data Migration
 
 ```mermaid
 flowchart LR
-    A["📂 Upload CSV"] --> B["st.session_state\n(uploaded_data)"]
-    B --> C["🔍 Data Quality"]
-    B --> D["📊 BI Dashboard"]
-    B --> E["🤖 AI Forecaster"]
-    B --> F["💡 AI Insights\n(Gemini API)"]
+    A["v2.0 SQLite<br/>(2 tabel)"] --> B["Migration Script<br/>(Python)"]
+    B --> C["v3.0 Django DB<br/>(5 tabel)"]
+
+    B --> |"1. products → categories + products"| C
+    B --> |"2. transactions → transactions + details"| C
+    B --> |"3. Create default owner user"| C
 ```
 
-> [!WARNING]
-> **Masalah Utama Arsitektur Saat Ini:**
-> - **Satu-satunya pintu masuk data** adalah upload CSV — tidak ada cara input manual
-> - **Tidak ada persistent storage** — data hilang saat refresh halaman
-> - **Tidak ada data demo** — pengguna baru melihat halaman kosong
-> - **Metrik ML mentah** — MAE, RMSE, R² tanpa penjelasan bisnis
-> - Semua data hanya hidup di `st.session_state`
+**Langkah Migrasi:**
+1. Export `products` v2.0 → buat `categories` (dari unique product types) + `products` (dengan `buy_price`, `stock`)
+2. Export `transactions` v2.0 → buat `transactions` header + `transaction_details` items
+3. Buat default owner account
+4. Validasi data integrity setelah migrasi
 
-### File & Struktur Saat Ini
+### Kode yang Dipertahankan dari v2.0 (Partial)
+- **CSS styling** → Diadaptasi untuk Bootstrap 5 (dark/light theme, glassmorphism)
+- **NLP Gemini prompt** → Dipindahkan ke `nlp_service.py`
+- **Demo data generator** → Diadaptasi sebagai Django management command
 
-| File | Fungsi | Status |
-|---|---|---|
-| [app.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/app.py) | Entry point, navigasi 7 halaman | ✏️ Modifikasi |
-| [src/overview.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/src/overview.py) | Landing page | ✏️ Modifikasi |
-| [pages/1_Upload_Dataset.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/1_Upload_Dataset.py) | Upload CSV | ✏️ Modifikasi |
-| [pages/2_Data_Quality.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/2_Data_Quality.py) | Cek kualitas data | Tetap |
-| [pages/3_BI_Dashboard.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/3_BI_Dashboard.py) | Dashboard BI | Tetap |
-| [pages/4_AI_Forecaster.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/4_AI_Forecaster.py) | Forecasting ML & reorder point | ✏️ Modifikasi |
-| [pages/5_AI_Insights.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/5_AI_Insights.py) | AI Insights via Gemini | Tetap |
-| [pages/6_About.py](https://github.com/Group7-DSGA-Celerates/rigazup-finalproject-celerates/blob/main/pages/6_About.py) | About Project | ✏️ Modifikasi |
-
-### Kolom Data yang Digunakan
-
-```
-date           → Format: YYYY-MM-DD
-product_name   → Nama produk (string)
-quantity_sold  → Jumlah terjual (integer)
-unit_price     → Harga satuan (float/integer)
-```
-
-### Integrasi Gemini API Saat Ini
-
-- **Package:** `google-generativeai`
-- **Model:** `gemini-pro`
-- **API Key:** Environment variable `GEMINI_API_KEY` atau `st.secrets["GEMINI_API_KEY"]`
-- **Digunakan di:** `pages/5_AI_Insights.py` untuk analisis tren & rekomendasi
+### Kode yang Dihapus / Diganti Total
+- Semua Streamlit pages (`pages/*.py`) → Django views + templates
+- `st.session_state` → Django sessions + DB queries
+- Raw SQL → Django ORM
+- `src/modeling.py`, `src/feature_engineering.py`, `src/evaluation.py` → Dihapus (ML bukan fokus v3.0)
+- `src/restock.py` → Diganti dengan `stock_engine.py` (rule-based, bukan ML)
 
 ---
 
-## 3. Arsitektur Sistem Target (TO-BE)
+## 10. Target Penyelesaian & Timeline
+
+### Fase Pengembangan (4 Minggu)
 
 ```mermaid
-flowchart TB
-    subgraph "Input Layer"
-        A["📂 Upload CSV\n(Data Historis)"]
-        B["🧾 Mode Kasir\n(Form Manual)"]
-        C["💬 Catat Nota\n(Teks Natural → Gemini)"]
-        D["🎮 Data Demo\n(Simulasi 1 Tahun)"]
-    end
+gantt
+    title RIGAZUP v3.0 Development Timeline
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
 
-    subgraph "Storage Layer"
-        E["📁 SQLite Database\n(rigazup.db)\nTabel: transactions, products"]
-    end
+    section Minggu 1 — Foundation
+    Django project setup & config      :a1, 2026-07-21, 1d
+    Database models & migrations       :a2, after a1, 2d
+    Auth system (login/logout/RBAC)    :a3, after a2, 2d
 
-    subgraph "Processing Layer"
-        F["st.session_state\n(unified DataFrame)"]
-    end
+    section Minggu 2 — Core CRUD
+    Product CRUD + validation          :b1, 2026-07-28, 2d
+    Transaction/POS + stock engine     :b2, after b1, 2d
+    Templates (Bootstrap 5 UI)         :b3, after b2, 1d
 
-    subgraph "Output Layer"
-        G["🔍 Data Quality"]
-        H["📊 BI Dashboard"]
-        I["🤖 AI Forecaster\n+ Interpretasi Manusia"]
-        J["💡 AI Insights"]
-    end
+    section Minggu 3 — Features & AI
+    Dashboard owner (KPI cards)        :c1, 2026-08-04, 1d
+    Report generation (PDF/Excel)      :c2, after c1, 2d
+    NLP Gemini integration (AI 10%)    :c3, after c2, 2d
 
-    A --> E
-    B --> E
-    C --> E
-    D --> E
-    E --> F
-    F --> G
-    F --> H
-    F --> I
-    F --> J
+    section Minggu 4 — Testing & Polish
+    Unit tests (target 80% coverage)   :d1, 2026-08-11, 2d
+    Black-box testing                  :d2, after d1, 1d
+    SUS questionnaire                  :d3, after d2, 1d
+    Bug fixes & documentation          :d4, after d3, 1d
 ```
 
-> [!IMPORTANT]
-> **Perubahan Arsitektur Kunci:**
-> 1. Semua input (CSV, form, NLP, demo) mengalir ke **SQLite** sebagai single source of truth
-> 2. `st.session_state` tetap digunakan, tapi di-*populate* dari database
-> 3. Data **persisten** — tidak hilang saat refresh
-> 4. SQLite ringan dan kompatibel dengan Streamlit Cloud
+| Minggu | Deliverables | RPL % |
+|:---:|---|:---:|
+| **1** | Django setup, 5 models + migrations, Auth + RBAC middleware | 100% RPL |
+| **2** | CRUD produk/kategori, POS kasir, stock engine, Bootstrap templates | 100% RPL |
+| **3** | Dashboard owner, PDF/Excel reports, Gemini NLP service | 80% RPL, 20% AI |
+| **4** | 16+ unit tests, 10 black-box tests, SUS kuesioner, dokumentasi | 100% RPL |
 
 ---
 
-## 4. Spesifikasi Fitur Detail
+## 11. Batasan Penelitian
+
+1. Aplikasi berbasis **Web** (browser), bukan aplikasi native Android/iOS.
+2. Fitur **pembayaran digital** (QRIS, e-wallet) belum diintegrasikan; transaksi bersifat pencatatan tunai.
+3. Fitur **Machine Learning forecasting** dari v2.0 **tidak dipertahankan** di v3.0 — fokus sepenuhnya pada RPL.
+4. Fitur **AI hanya untuk NLP nota kasir** (10%) — tidak ada AI Insights atau AI Forecaster.
+5. **Testing** mencakup unit test, black-box, dan SUS — tidak termasuk stress test atau performance test.
+6. Hosting di lingkungan lokal atau PaaS sederhana (Railway, Render) dengan database PostgreSQL.
 
 ---
 
-### 4.1 🔴 FITUR 1: Mode Kasir / Input Transaksi Harian
-
-#### 4.1.1 Deskripsi
-Halaman form manual bernama **"Input Penjualan Baru"** yang memungkinkan pengguna mencatat transaksi harian tanpa harus membuat/mengedit file CSV. Ini menjadi workflow utama untuk operasional sehari-hari, sementara CSV tetap tersedia untuk import data historis.
-
-#### 4.1.2 User Story
-> *Sebagai pemilik toko kelontong, saya ingin mencatat setiap transaksi penjualan dengan klik-klik sederhana, sehingga stok dan reorder point otomatis terupdate tanpa harus repot membuka Excel.*
-
-#### 4.1.3 Komponen UI
-
-```
-┌─────────────────────────────────────────────────┐
-│  🧾 Input Penjualan Baru                        │
-│                                                   │
-│  📅 Tanggal: [Date Picker — default: hari ini]   │
-│                                                   │
-│  📦 Produk:  [▼ Selectbox: daftar produk]        │
-│              [+ Tambah Produk Baru ...]           │
-│                                                   │
-│  🔢 Jumlah:  [Number Input — min: 1]             │
-│                                                   │
-│  💰 Harga Satuan: [Number Input — auto-fill]     │
-│                                                   │
-│  [ 💾 Simpan Transaksi ]                          │
-│                                                   │
-│  ─────────────────────────────────────────────    │
-│  📋 Riwayat Transaksi Hari Ini                   │
-│  ┌──────┬──────────┬─────┬───────┬───────┐       │
-│  │ No   │ Produk   │ Qty │ Harga │ Total │       │
-│  ├──────┼──────────┼─────┼───────┼───────┤       │
-│  │ 1    │ Indomie  │ 5   │ 3.500 │17.500 │       │
-│  │ 2    │ Minyak   │ 3   │18.000 │54.000 │       │
-│  └──────┴──────────┴─────┴───────┴───────┘       │
-│                                                   │
-│  📊 Total Hari Ini: Rp 71.500 (8 item)           │
-└─────────────────────────────────────────────────┘
-```
-
-#### 4.1.4 Spesifikasi Teknis
-
-**File Baru:** `pages/1B_Input_Penjualan.py`
-
-**Komponen Streamlit:**
-| Komponen | Widget | Detail |
-|---|---|---|
-| Tanggal | `st.date_input()` | Default: `datetime.today()` |
-| Pilih Produk | `st.selectbox()` | Sumber: tabel `products` di SQLite |
-| Tambah Produk Baru | `st.text_input()` + `st.number_input()` | Muncul via `st.expander` |
-| Jumlah Barang | `st.number_input()` | `min_value=1, step=1` |
-| Harga Satuan | `st.number_input()` | Auto-fill dari produk, bisa di-override |
-| Tombol Simpan | `st.form_submit_button()` | Di dalam `st.form("input_transaksi")` |
-
-**Database (SQLite):**
-
-```sql
--- Tabel produk (master data)
-CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_name TEXT UNIQUE NOT NULL,
-    default_price REAL NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tabel transaksi (log penjualan)
-CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,              -- Format: YYYY-MM-DD
-    product_name TEXT NOT NULL,
-    quantity_sold INTEGER NOT NULL,
-    unit_price REAL NOT NULL,
-    source TEXT DEFAULT 'manual',    -- 'manual', 'csv', 'nlp', 'demo'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_name) REFERENCES products(product_name)
-);
-```
-
-**Modul Baru:** `src/database.py`
-
-```python
-# Fungsi-fungsi utama:
-def init_db()                           # Buat tabel jika belum ada
-def insert_transaction(date, product, qty, price, source)
-def insert_bulk_transactions(df, source)  # Untuk CSV/demo import
-def get_all_transactions() -> pd.DataFrame
-def get_products() -> list
-def add_product(name, price)
-def get_today_transactions() -> pd.DataFrame
-def load_data_to_session()              # Populate st.session_state['uploaded_data']
-```
-
-**Alur Kerja:**
-1. User membuka halaman "Input Penjualan Baru"
-2. Pilih produk dari dropdown (atau tambah baru)
-3. Isi jumlah dan harga
-4. Klik "Simpan Transaksi"
-5. Data masuk ke SQLite → `load_data_to_session()` dipanggil
-6. Semua halaman lain (Dashboard, Forecaster, dll.) otomatis membaca data terbaru
-7. Riwayat transaksi hari ini ditampilkan di bawah form
-
-#### 4.1.5 Validasi & Error Handling
-- Produk harus dipilih (tidak boleh kosong)
-- Jumlah minimal 1
-- Harga minimal > 0
-- Tanggal tidak boleh di masa depan
-- Duplikasi produk di master data → ditolak dengan pesan jelas
-- Feedback: `st.success("✅ Transaksi tersimpan!")` + balloons
-
----
-
-### 4.2 🟠 FITUR 2: Catat Nota via Teks Natural (Gemini AI)
-
-#### 4.2.1 Deskripsi
-Fitur **"Catat Nota Cepat"** yang memanfaatkan Gemini API untuk mengekstrak data transaksi dari teks bahasa Indonesia yang tidak beraturan. Ini adalah *killer feature* yang membuat RIGAZUP unik — kasir tinggal mengetik seperti menulis pesan WhatsApp.
-
-#### 4.2.2 User Story
-> *Sebagai kasir yang sibuk, saya ingin mencatat penjualan dengan mengetik kalimat biasa seperti "minyak goreng laku 3, indomie 5 biji, beras 5kg dibeli 2 karung", tanpa perlu mengisi form satu-satu.*
-
-#### 4.2.3 Komponen UI
-
-```
-┌─────────────────────────────────────────────────┐
-│  💬 Catat Nota Cepat (AI-Powered)                │
-│                                                   │
-│  Ketik nota penjualan Anda dengan bahasa bebas:  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │ Minyak goreng laku 3, indomie dibeli orang  │ │
-│  │ 5 biji, sabun mandi 2                       │ │
-│  └─────────────────────────────────────────────┘ │
-│                                                   │
-│  [ 🤖 Proses dengan AI ]                         │
-│                                                   │
-│  ─── Hasil Parsing AI ──────────────────────      │
-│                                                   │
-│  ✅ Berhasil mengekstrak 3 item:                  │
-│  ┌──────────────┬─────┬──────────┐               │
-│  │ Produk       │ Qty │ Harga    │               │
-│  ├──────────────┼─────┼──────────┤               │
-│  │ Minyak Gorenng│ 3   │ 18.000  │  ← auto-match│
-│  │ Indomie      │ 5   │ 3.500   │  ← auto-match │
-│  │ Sabun Mandi  │ 2   │ ⚠️ ???  │  ← perlu input│
-│  └──────────────┴─────┴──────────┘               │
-│                                                   │
-│  ⚠️ "Sabun Mandi" belum terdaftar.               │
-│     Masukkan harga: [Number Input]               │
-│                                                   │
-│  [ ✅ Konfirmasi & Simpan Semua ]                 │
-└─────────────────────────────────────────────────┘
-```
-
-#### 4.2.4 Spesifikasi Teknis
-
-**Ditambahkan di:** `pages/1B_Input_Penjualan.py` (tab atau expander di halaman yang sama)
-
-**Prompt Engineering untuk Gemini:**
-
-```python
-EXTRACTION_PROMPT = """
-Kamu adalah asisten kasir toko kelontong Indonesia.
-Ekstrak teks penjualan berikut menjadi format JSON array.
-Setiap item harus memiliki field: "nama_barang" (string, capitalized) dan "quantity" (integer).
-
-ATURAN PENTING:
-1. Jika tidak ada angka disebutkan, anggap quantity = 1
-2. Abaikan kata-kata seperti "laku", "dibeli orang", "biji", "buah", "karung", "pcs"
-3. Normalisasi nama barang (contoh: "mie goreng" → "Indomie Goreng", "migor" → "Minyak Goreng")
-4. Jangan tambahkan field lain selain "nama_barang" dan "quantity"
-5. Output HANYA JSON array, tanpa penjelasan atau markdown
-
-Teks penjualan:
-"{user_input}"
-"""
-```
-
-**Alur Kerja:**
-1. User mengetik teks nota di `st.text_area`
-2. Klik "Proses dengan AI"
-3. Teks dikirim ke Gemini API dengan prompt di atas
-4. Response di-parse sebagai JSON: `json.loads(response.text)`
-5. Sistem melakukan **fuzzy matching** nama barang dengan master produk di database
-   - Jika match → auto-fill harga dari database
-   - Jika tidak match → tandai ⚠️ dan minta user input harga + konfirmasi nama
-6. Tampilkan tabel preview hasil parsing dengan `st.data_editor` (bisa diedit user)
-7. User klik "Konfirmasi & Simpan" → masuk ke SQLite dengan `source='nlp'`
-
-**Penanganan Error:**
-- Gemini mengembalikan format non-JSON → coba parsing ulang, tampilkan error yang ramah
-- Nama barang ambigu → tampilkan saran terdekat dari database (fuzzy match dengan `difflib.get_close_matches`)
-- API timeout → retry 1x, lalu tampilkan form manual sebagai fallback
-
-**Dependency Tambahan:** Tidak ada — sudah menggunakan `google-generativeai` dan `json` (standard library)
-
----
-
-### 4.3 🟡 FITUR 3: Tombol "Gunakan Data Demo"
-
-#### 4.3.1 Deskripsi
-Tombol mencolok di sidebar dan landing page yang langsung memuat **dataset simulasi penjualan mini market fiktif selama 1 tahun** (365 hari, 15-20 produk, ~5.000+ baris). Pengguna baru bisa langsung melihat dashboard beraksi tanpa perlu menyiapkan file CSV.
-
-#### 4.3.2 User Story
-> *Sebagai pengguna baru yang baru membuka link RIGAZUP, saya ingin langsung melihat bagaimana dashboard dan AI forecasting bekerja, tanpa harus menyiapkan data sendiri.*
-
-#### 4.3.3 Komponen UI
-
-**Di Sidebar (selalu tampil):**
-```
-┌────────────────────┐
-│  🎮 MODE DEMO      │
-│  ──────────────     │
-│  [ 🚀 Gunakan      │
-│    Data Simulasi ]  │
-│                     │
-│  Data fiktif toko   │
-│  kelontong 1 tahun  │
-└────────────────────┘
-```
-
-**Di Landing Page (`src/overview.py`):**
-```
-┌─────────────────────────────────────────────────┐
-│  🎮 Baru pertama kali? Coba langsung!            │
-│                                                   │
-│  [ 🚀 Gunakan Data Simulasi Demo ]               │
-│                                                   │
-│  Dataset berisi data penjualan fiktif toko        │
-│  kelontong selama 1 tahun (2024-2025).           │
-│  Anda bisa langsung mencoba semua fitur!          │
-└─────────────────────────────────────────────────┘
-```
-
-#### 4.3.4 Spesifikasi Teknis
-
-**File Data Demo Baru:** `data/demo_sales_data.csv`
-
-**Konten Demo Dataset:**
-- **Periode:** 1 Januari 2024 — 31 Desember 2024
-- **Jumlah Produk:** 15 produk khas toko kelontong Indonesia
-- **Total Baris:** ~5.000-6.000 transaksi
-- **Variasi realistis:** tren musiman (Ramadan, Natal), weekend spike, variasi harga
-
-**Produk Demo:**
-
-| # | Nama Produk | Harga Satuan | Rata-rata Harian |
-|---|---|---|---|
-| 1 | Indomie Goreng | 3.500 | 8-15 |
-| 2 | Minyak Goreng Bimoli 1L | 18.000 | 3-7 |
-| 3 | Beras Premium 5kg | 65.000 | 2-4 |
-| 4 | Gula Pasir 1kg | 15.000 | 3-6 |
-| 5 | Kopi Kapal Api Sachet | 1.500 | 10-20 |
-| 6 | Sabun Mandi Lifebuoy | 4.500 | 3-8 |
-| 7 | Deterjen Rinso 800g | 12.000 | 2-5 |
-| 8 | Air Mineral Aqua 600ml | 3.000 | 15-25 |
-| 9 | Teh Pucuk Harum 350ml | 4.000 | 8-15 |
-| 10 | Rokok Gudang Garam | 28.000 | 5-12 |
-| 11 | Telur Ayam (butir) | 2.500 | 10-20 |
-| 12 | Susu Ultra Milk 250ml | 5.500 | 5-10 |
-| 13 | Roti Tawar Sari Roti | 15.000 | 2-5 |
-| 14 | Mie Sedaap Goreng | 3.200 | 6-12 |
-| 15 | Sambal ABC Sachet | 2.000 | 8-15 |
-
-**Script Generator:** `src/generate_demo_data.py`
-
-```python
-# Pseudocode
-import pandas as pd
-import numpy as np
-
-def generate_demo_data():
-    """Generate 1 year of realistic sales data for a fictional mini market."""
-    products = { ... }  # dict of product_name → unit_price
-    dates = pd.date_range('2024-01-01', '2024-12-31')
-    
-    records = []
-    for date in dates:
-        for product, price in products.items():
-            # Base demand with seasonal factors
-            base = np.random.poisson(lam=avg_demand[product])
-            
-            # Ramadan boost for food items (March-April 2024)
-            # Weekend boost (+20%)
-            # Year-end boost (December)
-            
-            if base > 0:
-                records.append({
-                    'date': date.strftime('%Y-%m-%d'),
-                    'product_name': product,
-                    'quantity_sold': base,
-                    'unit_price': price
-                })
-    
-    return pd.DataFrame(records)
-```
-
-**Alur Kerja:**
-1. User klik "Gunakan Data Simulasi Demo"
-2. Baca `data/demo_sales_data.csv`
-3. Import ke SQLite dengan `source='demo'`
-4. Panggil `load_data_to_session()`
-5. Tampilkan `st.success("🎮 Data demo berhasil dimuat! ...")` + redirect/rerun
-6. Semua halaman langsung menampilkan data
-
-**Pengamanan:**
-- Jika sudah ada data real → tampilkan `st.warning("⚠️ Memuat data demo akan menghapus data saat ini. Lanjutkan?")` + tombol konfirmasi
-- Data demo diberi flag `source='demo'` agar bisa dibedakan dari data real
-
----
-
-### 4.4 🟡 FITUR 4: Interpretasi Model yang Manusiawi
-
-#### 4.4.1 Deskripsi
-Menambahkan **penjelasan dalam bahasa bisnis** di bawah setiap metrik evaluasi model (MAE, RMSE, R²). Metrik ilmiah tetap ditampilkan, tetapi dilengkapi dengan interpretasi yang mudah dipahami pemilik UMKM.
-
-#### 4.4.2 User Story
-> *Sebagai pemilik toko yang bukan data scientist, saya ingin memahami apa artinya "MAE = 2.3" dalam konteks bisnis saya, tanpa harus Googling istilah statistik.*
-
-#### 4.4.3 Komponen UI
-
-**SEBELUM (AS-IS):**
-```
-┌──────────────────────────────────┐
-│ Model Comparison                  │
-│ ┌───────────┬──────┬──────┬────┐ │
-│ │ Model     │ MAE  │ RMSE │ R² │ │
-│ ├───────────┼──────┼──────┼────┤ │
-│ │ XGBoost   │ 1.8  │ 2.3  │0.94│ │
-│ │ RF        │ 2.1  │ 2.7  │0.91│ │
-│ │ ...       │ ...  │ ...  │... │ │
-│ └───────────┴──────┴──────┴────┘ │
-└──────────────────────────────────┘
-```
-
-**SESUDAH (TO-BE):**
-```
-┌──────────────────────────────────────────────────┐
-│ 🏆 Model Terbaik: XGBoost                        │
-│                                                   │
-│ ┌───────────┬──────┬──────┬──────┬──────────────┐│
-│ │ Model     │ MAE  │ RMSE │ R²   │ Akurasi     ││
-│ ├───────────┼──────┼──────┼──────┼──────────────┤│
-│ │ XGBoost ⭐│ 1.8  │ 2.3  │ 0.94 │ ████████ 94%││
-│ │ RF        │ 2.1  │ 2.7  │ 0.91 │ ███████░ 91%││
-│ │ ...       │ ...  │ ...  │ ...  │ ...         ││
-│ └───────────┴──────┴──────┴──────┴──────────────┘│
-│                                                   │
-│ 💡 Apa Artinya?                                   │
-│ ┌─────────────────────────────────────────────┐  │
-│ │ "Model XGBoost mendominasi dengan tingkat    │  │
-│ │  akurasi 94%. Artinya, prediksi meleset      │  │
-│ │  maksimal hanya sekitar 2 unit barang dari   │  │
-│ │  permintaan asli. Untuk produk 'Indomie      │  │
-│ │  Goreng' yang rata-rata terjual 12/hari,     │  │
-│ │  prediksi akan berkisar 10-14 unit — cukup   │  │
-│ │  akurat untuk perencanaan stok harian."      │  │
-│ └─────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┘
-```
-
-#### 4.4.4 Spesifikasi Teknis
-
-**Modifikasi di:** `pages/4_AI_Forecaster.py`
-
-**Logika Interpretasi (Python):**
-
-```python
-def interpret_model_metrics(best_model_name, mae, rmse, r2, avg_demand, product_name):
-    """Generate human-friendly interpretation of model metrics."""
-    
-    # Hitung akurasi persentase dari R²
-    accuracy_pct = max(0, r2 * 100)
-    
-    # Kategorisasi performa
-    if r2 >= 0.90:
-        level = "sangat baik"
-        emoji = "🟢"
-        desc = "sangat akurat"
-    elif r2 >= 0.75:
-        level = "baik"
-        emoji = "🟡"
-        desc = "cukup akurat"
-    elif r2 >= 0.50:
-        level = "cukup"
-        emoji = "🟠"
-        desc = "masih perlu diperhatikan"
-    else:
-        level = "kurang"
-        emoji = "🔴"
-        desc = "perlu lebih banyak data"
-    
-    interpretation = f"""
-    {emoji} **Model {best_model_name}** menunjukkan performa **{level}** 
-    dengan tingkat akurasi **{accuracy_pct:.0f}%**.
-    
-    📊 **Dalam bahasa bisnis:**
-    - Prediksi untuk **{product_name}** meleset rata-rata hanya 
-      **{mae:.1f} unit** dari permintaan aktual
-    - Untuk produk yang rata-rata terjual **{avg_demand:.0f} unit/hari**, 
-      prediksi akan berkisar **{max(0, avg_demand-mae):.0f}–{avg_demand+mae:.0f} unit**
-    - Tingkat kepercayaan model: **{desc}** untuk perencanaan stok
-    """
-    return interpretation
-```
-
-**Opsi Alternatif — Menggunakan Gemini API:**
-
-Untuk interpretasi yang lebih kaya dan kontekstual, kirim metrik ke Gemini:
-
-```python
-INTERPRETATION_PROMPT = """
-Kamu adalah konsultan bisnis UMKM Indonesia. Jelaskan hasil evaluasi model ML berikut 
-dalam 2-3 kalimat sederhana yang dipahami pemilik toko kelontong. 
-Jangan gunakan istilah teknis. Fokus pada dampak bisnis.
-
-Data:
-- Model terbaik: {best_model}
-- MAE (rata-rata selisih prediksi): {mae:.2f} unit
-- Akurasi (R²): {r2:.2%}
-- Produk: {product_name}
-- Rata-rata penjualan harian: {avg_demand:.0f} unit
-
-Berikan penjelasan singkat dan actionable.
-"""
-```
-
-> [!TIP]
-> **Rekomendasi:** Gunakan logika `if-else` sebagai default (tanpa biaya API), dan sediakan tombol "🤖 Minta Penjelasan AI Lebih Detail" yang memanggil Gemini untuk interpretasi lebih mendalam.
-
----
-
-### 4.5 🟢 FITUR 5: Rebranding "About RIGAZUP"
-
-#### 4.5.1 Deskripsi
-Mengganti halaman "About Project" menjadi **"About RIGAZUP"** dengan pengembang tunggal: **Rian Sholihan (NIM: 23051204384)**, S1 Teknik Informatika, Fakultas Teknik, Universitas Negeri Surabaya. Semua penyebutan "Kelompok 7", "Celerates", "DSGA", dan "CAMP" dihapus.
-
-#### 4.5.2 Perubahan
-
-**Modifikasi di:** `pages/6_About.py` dan `app.py` (judul navigasi)
-
-**Konten Baru:**
-
-```python
-st.title("ℹ️ About RIGAZUP")
-
-st.markdown("""
-## 📦 RIGAZUP — ML-Powered Smart Inventory Planner
-
-### 📋 Deskripsi Proyek
-RIGAZUP adalah aplikasi perencanaan inventaris cerdas berbasis Machine Learning 
-yang dirancang khusus untuk UMKM (Usaha Mikro, Kecil, dan Menengah) di Indonesia.
-Aplikasi ini membantu pemilik bisnis mengelola stok barang secara otomatis 
-menggunakan prediksi AI dan memberikan rekomendasi reorder point yang optimal.
-
-### 👨‍💻 Pengembang
-| Nama | NIM | Program Studi | Fakultas | Universitas |
-|---|---|---|---|---|
-| **Rian Sholihan** | 23051204384 | S1 Teknik Informatika | Fakultas Teknik | Universitas Negeri Surabaya |
-
-### ✨ Fitur Utama
-- 📂 Upload data historis via CSV
-- 🧾 Mode kasir untuk input transaksi harian
-- 💬 Catat nota cepat dengan bahasa natural (AI-powered)
-- 📊 Dashboard Business Intelligence interaktif
-- 🤖 AI Forecasting dengan 4 model ML
-- 💡 AI Insights menggunakan Google Gemini
-- 🎮 Data demo untuk onboarding instan
-
-### 🛠️ Technology Stack
-- **Backend:** Python, Pandas, NumPy
-- **Frontend:** Streamlit
-- **ML:** Scikit-Learn, XGBoost
-- **AI:** Google Gemini API
-- **Visualisasi:** Plotly
-- **Database:** SQLite
-""")
-```
-
-**Perubahan di `app.py`:**
-```diff
-- st.Page("pages/6_About.py", title="About Project", icon="ℹ️"),
-+ st.Page("pages/6_About.py", title="About RIGAZUP", icon="ℹ️"),
-```
-
-**Perubahan di `src/overview.py` (footer):**
-```diff
-- <p>© 2025 RIGAZUP - Kelompok 7 DSGA Celerates</p>
-- <p>Data Science & Generative AI • Final Project</p>
-+ <p>© 2025 RIGAZUP — Developed by Rian Sholihan</p>
-+ <p>S1 Teknik Informatika • Universitas Negeri Surabaya</p>
-```
-
----
-
-## 5. Perubahan File Lengkap
-
-### File Baru
-| File | Deskripsi |
-|---|---|
-| `src/database.py` | Modul SQLite — init, CRUD, load to session |
-| `pages/1B_Input_Penjualan.py` | Halaman Mode Kasir + Catat Nota NLP |
-| `data/demo_sales_data.csv` | Dataset demo 1 tahun (~5.000 baris) |
-| `src/generate_demo_data.py` | Script generator untuk data demo |
-
-### File Dimodifikasi
-| File | Perubahan |
-|---|---|
-| `app.py` | Tambah navigasi halaman baru, init database, ubah judul "About" |
-| `src/overview.py` | Tambah tombol "Data Demo", update footer pengembang |
-| `pages/1_Upload_Dataset.py` | Tambah integrasi SQLite (insert CSV ke DB), tambah tombol demo |
-| `pages/4_AI_Forecaster.py` | Tambah interpretasi model manusiawi |
-| `pages/6_About.py` | Rebranding ke "About RIGAZUP", update pengembang |
-| `requirements.txt` | Tidak ada dependency baru (sqlite3 sudah built-in Python) |
-
----
-
-## 6. Navigasi Baru
-
-```python
-pages = {
-    "Menu Utama": [
-        st.Page("src/overview.py", title="RIGAZUP", icon="🏠", default=True),
-        st.Page("pages/1_Upload_Dataset.py", title="Upload Data Historis", icon="📂"),
-        st.Page("pages/1B_Input_Penjualan.py", title="Input Penjualan Baru", icon="🧾"),
-        st.Page("pages/2_Data_Quality.py", title="Data Quality", icon="🔍"),
-        st.Page("pages/3_BI_Dashboard.py", title="BI Dashboard", icon="📊"),
-        st.Page("pages/4_AI_Forecaster.py", title="AI Forecaster", icon="🤖"),
-        st.Page("pages/5_AI_Insights.py", title="AI Insights", icon="💡"),
-        st.Page("pages/6_About.py", title="About RIGAZUP", icon="ℹ️"),
-    ]
-}
-```
-
----
-
-## 7. Alur Data Baru (Data Flow)
-
-```mermaid
-sequenceDiagram
-    actor User as 👤 Pengguna
-    participant LP as 🏠 Landing Page
-    participant KS as 🧾 Mode Kasir
-    participant NLP as 💬 Nota NLP
-    participant CSV as 📂 Upload CSV
-    participant DB as 📁 SQLite
-    participant SS as 🔄 Session State
-    participant Dash as 📊 Dashboard/Forecaster
-
-    Note over User, Dash: Alur 1 — Onboarding (Pertama Kali)
-    User->>LP: Buka rigazup.streamlit.app
-    LP->>User: Tampilkan tombol "Data Demo"
-    User->>LP: Klik "Gunakan Data Demo"
-    LP->>DB: INSERT demo data (source='demo')
-    DB->>SS: load_data_to_session()
-    SS->>Dash: Data tersedia!
-
-    Note over User, Dash: Alur 2 — Import Historis
-    User->>CSV: Upload file CSV
-    CSV->>DB: INSERT bulk (source='csv')
-    DB->>SS: load_data_to_session()
-
-    Note over User, Dash: Alur 3 — Operasi Harian (Form)
-    User->>KS: Pilih produk, isi qty
-    KS->>DB: INSERT (source='manual')
-    DB->>SS: load_data_to_session()
-
-    Note over User, Dash: Alur 4 — Operasi Harian (NLP)
-    User->>NLP: "Minyak goreng 3, indomie 5"
-    NLP->>NLP: Kirim ke Gemini API
-    NLP->>User: Preview hasil parsing
-    User->>NLP: Konfirmasi
-    NLP->>DB: INSERT (source='nlp')
-    DB->>SS: load_data_to_session()
-```
-
----
-
-## 8. Dependensi & Kompatibilitas
-
-| Package | Versi | Status | Catatan |
-|---|---|---|---|
-| `streamlit` | ≥1.36.0 | Sudah ada | Untuk `st.navigation` |
-| `pandas` | Latest | Sudah ada | |
-| `numpy` | Latest | Sudah ada | |
-| `scikit-learn` | Latest | Sudah ada | |
-| `xgboost` | Latest | Sudah ada | |
-| `plotly` | Latest | Sudah ada | |
-| `google-generativeai` | Latest | Sudah ada | Untuk Gemini API |
-| `sqlite3` | Built-in | Bawaan Python | **Tidak perlu install** |
-| `json` | Built-in | Bawaan Python | Untuk parsing response Gemini |
-| `difflib` | Built-in | Bawaan Python | Untuk fuzzy matching nama produk |
-
-> [!NOTE]
-> **Tidak ada dependency baru** yang perlu ditambahkan ke `requirements.txt`. Semua modul tambahan (`sqlite3`, `json`, `difflib`) sudah termasuk dalam Python standard library.
-
----
-
-## 9. Pertimbangan Deployment (Streamlit Cloud)
-
-| Aspek | Detail |
-|---|---|
-| **SQLite di Streamlit Cloud** | SQLite bekerja di Streamlit Cloud, tapi filesystem bersifat *ephemeral* — data akan hilang saat app restart/sleep. Solusi: gunakan path di working directory (`./rigazup.db`) dan sertakan data demo sebagai fallback. |
-| **Gemini API Key** | Tetap disimpan di `st.secrets` (file `.streamlit/secrets.toml` di Streamlit Cloud dashboard). |
-| **File Size** | Dataset demo ~500KB (CSV) — well within GitHub limits. |
-| **Cold Start** | Database otomatis di-init saat pertama kali app dijalankan via `init_db()` di `app.py`. |
-
-> [!IMPORTANT]
-> **Limitasi Streamlit Cloud:** Karena filesystem ephemeral, data yang diinput user via form/NLP akan hilang saat app sleep (setelah ~7 hari tidak ada traffic). Untuk workaround:
-> 1. **Jangka pendek:** Sediakan tombol "Export Data ke CSV" agar user bisa backup data mereka
-> 2. **Jangka panjang (v3.0):** Migrasi ke cloud database (Supabase, PlanetScale, atau Google Cloud SQL)
-
----
-
-## 10. Rencana Verifikasi
-
-### Automated Testing
-```bash
-# Test database module
-python -m pytest tests/test_database.py
-
-# Test demo data generation
-python src/generate_demo_data.py  # Verify output CSV
-
-# Run Streamlit app locally
-streamlit run app.py
-```
-
-### Manual Verification Checklist
-- [ ] Buka app → landing page menampilkan tombol "Data Demo"
-- [ ] Klik "Data Demo" → dashboard terisi data
-- [ ] Navigasi ke "Input Penjualan Baru" → form muncul lengkap
-- [ ] Isi form → klik Simpan → data muncul di riwayat hari ini
-- [ ] Ketik nota di fitur NLP → Gemini parsing berhasil → preview muncul
-- [ ] Konfirmasi NLP → data masuk ke database
-- [ ] Upload CSV → data historis masuk dan merge dengan data existing
-- [ ] Dashboard BI → semua chart menampilkan data gabungan
-- [ ] AI Forecaster → interpretasi manusiawi muncul di bawah metrik
-- [ ] About RIGAZUP → hanya menampilkan Rian Sholihan
-- [ ] Refresh halaman → data tetap ada (dari SQLite)
-- [ ] Export CSV → file terdownload dengan benar
-
----
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Keputusan Desain yang Perlu Persetujuan:**
->
-> 1. **SQLite vs File CSV sebagai storage:** PRD ini mengusulkan SQLite sebagai persistent storage. Alternatifnya adalah append-only CSV lokal (lebih sederhana tapi kurang reliable). Apakah SQLite sudah tepat?
->
-> 2. **Fitur NLP di halaman terpisah atau di halaman yang sama dengan Mode Kasir?** PRD ini mengusulkan keduanya di satu halaman (`1B_Input_Penjualan.py`) menggunakan tab/expander. Apakah lebih baik dipisah?
->
-> 3. **Ephemeral storage di Streamlit Cloud:** Data user akan hilang saat app sleep. Apakah cukup dengan tombol "Export CSV" sebagai workaround, atau perlu solusi cloud database sekarang?
->
-> 4. **Model Gemini:** Saat ini menggunakan `gemini-pro`. Apakah ingin upgrade ke model yang lebih baru (misal `gemini-1.5-flash` atau `gemini-2.0-flash`) untuk performa yang lebih baik?
+## 12. Kriteria Keberhasilan
+
+| Metrik | Target | Cara Ukur |
+|---|:---:|---|
+| Test Coverage | ≥ 80% | `pytest --cov` |
+| Unit Test Pass Rate | 100% | `python manage.py test` |
+| Black-Box Test Pass | 10/10 skenario pass | Manual test matrix |
+| SUS Score | > 68 | Kuesioner 5-10 responden |
+| RBAC Enforcement | 100% routes protected | Automated RBAC test suite |
+| Zero SQL Injection | 0 raw SQL queries | Code review (grep for raw SQL) |
+| Stock Accuracy | 100% auto-deduct correct | Transaction → stock delta verification |
+| Response Time | < 2 detik per halaman | Browser DevTools measurement |
